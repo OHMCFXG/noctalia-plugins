@@ -1,0 +1,59 @@
+{
+  "actions": {
+    "refresh": "Refresh Lyrics",
+    "settings": "Open Settings"
+  },
+  "status": {
+    "idle": "No active player",
+    "no-track": "Waiting for track metadata",
+    "loading": "Searching synced lyrics",
+    "ready": "Synced lyrics",
+    "plain": "Lyrics found, but not time-coded",
+    "empty": "No lyrics found",
+    "error": "Lyrics unavailable",
+    "source": "LRCLIB",
+    "source-prefix": "Source: {source}",
+    "state-prefix": "State: {state}"
+  },
+  "settings": {
+    "overview": "Pure QML lyrics fetcher powered by LRCLIB. Playback timing comes from Noctalia's MediaService, so the widget follows the active MPRIS player without the Rust backend.",
+    "advance-label": "Lyric Offset",
+    "advance-description": "Shift lyrics forward or backward to match your player latency.",
+    "timeout-label": "Request Timeout",
+    "timeout-description": "Abort a lyrics request after this many milliseconds.",
+    "bar-width-label": "Bar Max Width",
+    "bar-width-description": "Maximum width used by the bar widget before the lyric starts scrolling.",
+    "bar-hide-label": "Hide Bar When Idle",
+    "bar-hide-description": "Collapse the bar widget when there is no active track.",
+    "bar-dot-label": "Show Status Dot",
+    "bar-dot-description": "Display the animated state indicator at the start of the bar widget.",
+    "current-track-label": "Current Track",
+    "current-track-description": "Track metadata currently exposed by MediaService.",
+    "current-state-label": "Lyrics State",
+    "current-state-description": "Current fetch and parser state inside the plugin."
+  },
+  "desktop": {
+    "width-label": "Widget Width",
+    "width-description": "Preferred card width in pixels.",
+    "context-label": "Context Lines",
+    "context-description": "How many lines before and after the current lyric are visible.",
+    "font-size-label": "Current Line Size",
+    "font-size-description": "Base font size for the highlighted lyric line.",
+    "line-spacing-label": "Line Spacing",
+    "line-spacing-description": "Extra spacing between lyric rows.",
+    "opacity-label": "Context Opacity",
+    "opacity-description": "Opacity used by non-highlighted lyric lines.",
+    "meta-label": "Show Track Meta",
+    "meta-description": "Display song title and artist above the lyric block.",
+    "hide-label": "Hide When Idle",
+    "hide-description": "Hide the desktop widget when no playable track is active.",
+    "background-label": "Show Background",
+    "background-description": "Use Noctalia's desktop widget surface behind the lyrics.",
+    "corners-label": "Rounded Corners",
+    "corners-description": "Apply rounded clipping to the desktop widget container.",
+    "align-label": "Text Alignment",
+    "align-description": "Choose how lyrics are aligned inside the widget.",
+    "align-center": "Center",
+    "align-left": "Left"
+  }
+}

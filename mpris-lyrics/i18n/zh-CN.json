@@ -1,0 +1,59 @@
+{
+  "actions": {
+    "refresh": "重新获取歌词",
+    "settings": "打开设置"
+  },
+  "status": {
+    "idle": "没有活动播放器",
+    "no-track": "等待歌曲元数据",
+    "loading": "正在搜索同步歌词",
+    "ready": "已同步歌词",
+    "plain": "找到了歌词，但没有时间轴",
+    "empty": "没有找到歌词",
+    "error": "歌词暂时不可用",
+    "source": "LRCLIB",
+    "source-prefix": "来源：{source}",
+    "state-prefix": "状态：{state}"
+  },
+  "settings": {
+    "overview": "这个插件完全使用 QML 实现。播放时间轴来自 Noctalia 的 MediaService，歌词通过 LRCLIB 拉取并在插件内解析，不依赖 Rust 后端。",
+    "advance-label": "歌词偏移",
+    "advance-description": "根据播放器延迟，把歌词整体提前或延后。",
+    "timeout-label": "请求超时",
+    "timeout-description": "歌词请求超过这个毫秒数就会终止。",
+    "bar-width-label": "Bar 最大宽度",
+    "bar-width-description": "超过这个宽度后，Bar 中的歌词会开始滚动。",
+    "bar-hide-label": "空闲时隐藏 Bar",
+    "bar-hide-description": "没有活动歌曲时折叠 Bar 小部件。",
+    "bar-dot-label": "显示状态点",
+    "bar-dot-description": "在 Bar 小部件左侧显示动画状态指示点。",
+    "current-track-label": "当前歌曲",
+    "current-track-description": "MediaService 当前暴露出来的曲目信息。",
+    "current-state-label": "歌词状态",
+    "current-state-description": "插件内部当前的抓取与解析状态。"
+  },
+  "desktop": {
+    "width-label": "组件宽度",
+    "width-description": "桌面歌词卡片的首选宽度，单位像素。",
+    "context-label": "上下文行数",
+    "context-description": "当前歌词前后各显示多少行。",
+    "font-size-label": "当前行字号",
+    "font-size-description": "高亮歌词行使用的基础字号。",
+    "line-spacing-label": "行间距",
+    "line-spacing-description": "歌词行之间的额外间距。",
+    "opacity-label": "上下文透明度",
+    "opacity-description": "非高亮歌词行的透明度。",
+    "meta-label": "显示歌曲信息",
+    "meta-description": "在歌词上方显示标题和艺术家。",
+    "hide-label": "空闲时隐藏",
+    "hide-description": "没有可播放歌曲时隐藏桌面歌词组件。",
+    "background-label": "显示背景",
+    "background-description": "使用 Noctalia 桌面组件自带的表面背景。",
+    "corners-label": "圆角裁切",
+    "corners-description": "为桌面歌词组件应用圆角。",
+    "align-label": "文本对齐",
+    "align-description": "选择歌词在组件中的排版方式。",
+    "align-center": "居中",
+    "align-left": "左对齐"
+  }
+}

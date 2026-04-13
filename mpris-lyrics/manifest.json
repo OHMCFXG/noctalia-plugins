@@ -1,0 +1,33 @@
+{
+  "id": "mpris-lyrics",
+  "name": "MPRIS Lyrics",
+  "version": "1.0.0",
+  "author": "hcx",
+  "description": "Pure-QML synced lyrics for Noctalia bar and desktop widgets.",
+  "entryPoints": {
+    "main": "Main.qml",
+    "barWidget": "BarWidget.qml",
+    "desktopWidget": "DesktopWidget.qml",
+    "settings": "Settings.qml",
+    "desktopWidgetSettings": "DesktopWidgetSettings.qml"
+  },
+  "metadata": {
+    "defaultSettings": {
+      "lyricAdvanceMs": 120,
+      "requestTimeoutMs": 5000,
+      "barMaxWidth": 340,
+      "barHideWhenIdle": true,
+      "showBarStatusDot": true
+    },
+    "showBackground": true,
+    "roundedCorners": true,
+    "width": 520,
+    "contextLines": 1,
+    "fontSize": 22,
+    "showTrackMeta": true,
+    "hideWhenIdle": false,
+    "textAlign": "center",
+    "inactiveOpacity": 0.56,
+    "lineSpacing": 8
+  }
+}

@@ -1,0 +1,291 @@
+.pragma library
+
+function stringValue(value) {
+  if (value === undefined || value === null)
+    return "";
+  return String(value);
+}
+
+function cleanText(value) {
+  return stringValue(value).replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function normalizeText(value) {
+  var text = cleanText(value).toLowerCase();
+  text = text.replace(/\([^)]*\)|\[[^\]]*\]|\{[^}]*\}/g, " ");
+  text = text.replace(/\b(feat|ft|with|vs)\.?\b/g, " ");
+  text = text.replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ");
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function secondsValue(value) {
+  var number = Number(value);
+  if (!isFinite(number) || number < 0)
+    return 0;
+  return Math.round(number);
+}
+
+function formatTrack(track) {
+  var title = cleanText(track && track.title);
+  var artist = cleanText(track && track.artist);
+  if (title && artist)
+    return artist + " - " + title;
+  return title || artist || "";
+}
+
+function buildTrackKey(track) {
+  return [
+    normalizeText(track && track.title),
+    normalizeText(track && track.artist),
+    normalizeText(track && track.album),
+    secondsValue(track && track.duration)
+  ].join("::");
+}
+
+function parseFraction(raw) {
+  if (!raw)
+    return 0;
+  var digits = String(raw).replace(/[^0-9]/g, "");
+  if (digits.length === 0)
+    return 0;
+  if (digits.length === 1)
+    return parseInt(digits, 10) * 100;
+  if (digits.length === 2)
+    return parseInt(digits, 10) * 10;
+  return parseInt(digits.slice(0, 3), 10);
+}
+
+function parseTimestamp(token) {
+  var raw = cleanText(token);
+  if (!raw)
+    return null;
+
+  var parts = raw.split(":");
+  if (parts.length < 2 || parts.length > 3)
+    return null;
+
+  var hours = 0;
+  var minutes = 0;
+  var secondChunk = "";
+
+  if (parts.length === 3) {
+    hours = parseInt(parts[0], 10);
+    minutes = parseInt(parts[1], 10);
+    secondChunk = parts[2];
+  } else {
+    minutes = parseInt(parts[0], 10);
+    secondChunk = parts[1];
+  }
+
+  if (!isFinite(hours) || !isFinite(minutes))
+    return null;
+
+  var secondParts = secondChunk.split(/[.,]/);
+  var seconds = parseInt(secondParts[0], 10);
+  if (!isFinite(seconds))
+    return null;
+
+  var millis = parseFraction(secondParts.length > 1 ? secondParts[1] : "");
+  return (((hours * 60) + minutes) * 60 + seconds) * 1000 + millis;
+}
+
+function parseLrc(text) {
+  var raw = stringValue(text);
+  if (!raw.trim())
+    return [];
+
+  var result = [];
+  var lines = raw.replace(/\r/g, "").split("\n");
+  var tagPattern = /\[([^\]]+)\]/g;
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var matches = [];
+    var match;
+    tagPattern.lastIndex = 0;
+
+    while ((match = tagPattern.exec(line)) !== null) {
+      var timestamp = parseTimestamp(match[1]);
+      if (timestamp !== null)
+        matches.push(timestamp);
+    }
+
+    if (matches.length === 0)
+      continue;
+
+    var lyric = cleanText(line.replace(tagPattern, " "));
+    if (!lyric)
+      continue;
+
+    for (var j = 0; j < matches.length; j++) {
+      result.push({
+        timeMs: matches[j],
+        text: lyric
+      });
+    }
+  }
+
+  result.sort(function (a, b) {
+    if (a.timeMs === b.timeMs)
+      return a.text.localeCompare(b.text);
+    return a.timeMs - b.timeMs;
+  });
+
+  var deduped = [];
+  for (var k = 0; k < result.length; k++) {
+    var item = result[k];
+    var previous = deduped.length > 0 ? deduped[deduped.length - 1] : null;
+    if (!previous || previous.timeMs !== item.timeMs || previous.text !== item.text)
+      deduped.push(item);
+  }
+
+  return deduped;
+}
+
+function parsePlainLyrics(text) {
+  var raw = stringValue(text);
+  if (!raw.trim())
+    return [];
+
+  var lines = raw.replace(/\r/g, "").split("\n");
+  var result = [];
+  for (var i = 0; i < lines.length; i++) {
+    var line = cleanText(lines[i]);
+    if (!line)
+      continue;
+    if (result.length > 0 && result[result.length - 1] === line)
+      continue;
+    result.push(line);
+  }
+  return result;
+}
+
+function findLineIndex(entries, positionMs) {
+  if (!entries || entries.length === 0)
+    return -1;
+
+  var target = Number(positionMs);
+  if (!isFinite(target))
+    target = 0;
+
+  var low = 0;
+  var high = entries.length - 1;
+  var best = -1;
+
+  while (low <= high) {
+    var mid = Math.floor((low + high) / 2);
+    var value = Number(entries[mid].timeMs || 0);
+
+    if (value <= target) {
+      best = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return best;
+}
+
+function field(record, keys) {
+  if (!record)
+    return "";
+
+  for (var i = 0; i < keys.length; i++) {
+    if (record[keys[i]] !== undefined && record[keys[i]] !== null)
+      return record[keys[i]];
+  }
+
+  return "";
+}
+
+function countTokenOverlap(a, b) {
+  if (!a || !b)
+    return 0;
+
+  var left = a.split(" ");
+  var rightMap = {};
+  for (var i = 0; i < b.split(" ").length; i++)
+    rightMap[b.split(" ")[i]] = true;
+
+  var score = 0;
+  for (var j = 0; j < left.length; j++) {
+    if (left[j] && rightMap[left[j]])
+      score++;
+  }
+
+  return score;
+}
+
+function scoreDuration(target, candidate) {
+  if (!target || !candidate)
+    return 0;
+  var diff = Math.abs(target - candidate);
+  if (diff === 0)
+    return 35;
+  return Math.max(0, 35 - Math.min(35, diff));
+}
+
+function scoreTextMatch(target, candidate, exactScore, partialScore) {
+  if (!target || !candidate)
+    return 0;
+  if (target === candidate)
+    return exactScore;
+  if (target.indexOf(candidate) >= 0 || candidate.indexOf(target) >= 0)
+    return partialScore;
+  return countTokenOverlap(target, candidate) * 5;
+}
+
+function selectBestRecord(track, records) {
+  if (!records || !records.length)
+    return null;
+
+  var trackTitle = normalizeText(track && track.title);
+  var trackArtist = normalizeText(track && track.artist);
+  var trackAlbum = normalizeText(track && track.album);
+  var duration = secondsValue(track && track.duration);
+
+  var bestRecord = null;
+  var bestScore = -1e9;
+
+  for (var i = 0; i < records.length; i++) {
+    var record = records[i];
+    if (!record)
+      continue;
+
+    var title = normalizeText(field(record, ["trackName", "track_name", "name"]));
+    var artist = normalizeText(field(record, ["artistName", "artist_name", "artist"]));
+    var album = normalizeText(field(record, ["albumName", "album_name", "album"]));
+    var recordDuration = secondsValue(field(record, ["duration", "length", "trackLength"]));
+    var syncedLyrics = stringValue(field(record, ["syncedLyrics", "synced_lyrics"]));
+    var plainLyrics = stringValue(field(record, ["plainLyrics", "plain_lyrics", "lyrics"]));
+
+    var score = 0;
+    score += syncedLyrics.trim() ? 120 : 0;
+    score += !syncedLyrics.trim() && plainLyrics.trim() ? 40 : 0;
+    score += scoreTextMatch(trackTitle, title, 100, 55);
+    score += scoreTextMatch(trackArtist, artist, 70, 35);
+    score += scoreTextMatch(trackAlbum, album, 20, 10);
+    score += scoreDuration(duration, recordDuration);
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestRecord = record;
+    }
+  }
+
+  return bestRecord;
+}
+
+function buildQuery(params) {
+  var parts = [];
+  for (var key in params) {
+    if (!params.hasOwnProperty(key))
+      continue;
+    var value = cleanText(params[key]);
+    if (!value)
+      continue;
+    parts.push(encodeURIComponent(key) + "=" + encodeURIComponent(value));
+  }
+  return parts.join("&");
+}
