@@ -727,6 +727,7 @@ Item {
 
     function onPluginSettingsChanged() {
       root.updateCurrentLineIndex(true);
+      root.scheduleLyricsRefresh(true);
     }
   }
 

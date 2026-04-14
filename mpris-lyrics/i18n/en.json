@@ -11,7 +11,8 @@
     "plain": "Lyrics found, but not time-coded",
     "empty": "No lyrics found",
     "error": "Lyrics unavailable",
-    "state-prefix": "State: {state}"
+    "state-prefix": "State: {state}",
+    "source-prefix": "Source: {source}"
   },
   "settings": {
     "overview": "Displays synced lyrics in the bar and desktop widget, following the active media player.",
@@ -25,6 +26,12 @@
     "bar-hide-description": "Collapse the bar widget when there is no active track.",
     "bar-dot-label": "Show Status Dot",
     "bar-dot-description": "Display the animated state indicator at the start of the bar widget.",
+    "lyrics-sources-header": "Lyrics Sources",
+    "lyrics-sources-description": "Configure which lyrics sources to use and their priority order.",
+    "primary-source-label": "Primary Lyrics Source",
+    "primary-source-description": "The lyrics source to try first when searching for lyrics.",
+    "enable-qqmusic-label": "Enable QQ Music",
+    "enable-qqmusic-description": "Enable QQ Music as a fallback lyrics source.",
     "current-track-label": "Current Track",
     "current-track-description": "Track metadata currently exposed by MediaService.",
     "current-state-label": "Lyrics State",

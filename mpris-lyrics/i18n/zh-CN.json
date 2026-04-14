@@ -11,7 +11,8 @@
     "plain": "找到了歌词，但没有时间轴",
     "empty": "没有找到歌词",
     "error": "歌词暂时不可用",
-    "state-prefix": "状态：{state}"
+    "state-prefix": "状态：{state}",
+    "source-prefix": "来源：{source}"
   },
   "settings": {
     "overview": "跟随当前媒体播放器，在 Bar 和桌面组件中显示同步歌词。",
@@ -25,6 +26,12 @@
     "bar-hide-description": "没有活动歌曲时折叠 Bar 小部件。",
     "bar-dot-label": "显示状态点",
     "bar-dot-description": "在 Bar 小部件左侧显示动画状态指示点。",
+    "lyrics-sources-header": "歌词来源",
+    "lyrics-sources-description": "配置歌词来源以及优先级顺序。",
+    "primary-source-label": "首选歌词来源",
+    "primary-source-description": "搜索歌词时优先尝试的来源。",
+    "enable-qqmusic-label": "启用 QQ Music",
+    "enable-qqmusic-description": "启用 QQ Music 作为歌词兜底来源。",
     "current-track-label": "当前歌曲",
     "current-track-description": "MediaService 当前暴露出来的曲目信息。",
     "current-state-label": "歌词状态",

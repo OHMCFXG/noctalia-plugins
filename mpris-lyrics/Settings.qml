@@ -196,21 +196,23 @@ ColumnLayout {
     }
   }
 
-  property int primarySourceIndex: {
-    var source = draftSettings.primaryLyricsSource;
-    return source === "qqmusic" ? 1 : 0;
-  }
-
   NComboBox {
     Layout.fillWidth: true
     label: tr("settings.primary-source-label", "Primary Lyrics Source")
     description: tr("settings.primary-source-description", "The lyrics source to try first when searching for lyrics.")
-    model: ["LRCLib", "QQ Music"]
-    currentIndex: root.primarySourceIndex
-    onCurrentIndexChanged: {
-      root.primarySourceIndex = currentIndex;
-      draftSettings.primaryLyricsSource = currentIndex === 1 ? "qqmusic" : "lrclib";
-    }
+    model: [
+      {
+        "key": "lrclib",
+        "name": "LRCLib"
+      },
+      {
+        "key": "qqmusic",
+        "name": "QQ Music"
+      }
+    ]
+    currentKey: draftSettings.primaryLyricsSource === "qqmusic" ? "qqmusic" : "lrclib"
+    onSelected: key => draftSettings.primaryLyricsSource = key
+    defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.primaryLyricsSource
   }
 
   NToggle {
