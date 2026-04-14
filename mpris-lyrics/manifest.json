@@ -1,7 +1,7 @@
 {
   "id": "mpris-lyrics",
   "name": "MPRIS Lyrics",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "hcx",
   "description": "Synced lyrics for Noctalia bar and desktop widgets.",
   "entryPoints": {
@@ -11,7 +11,11 @@
     "settings": "Settings.qml",
     "desktopWidgetSettings": "DesktopWidgetSettings.qml"
   },
-  "tags": ["Bar", "Desktop", "Music"],
+  "tags": [
+    "Bar",
+    "Desktop",
+    "Music"
+  ],
   "metadata": {
     "defaultSettings": {
       "lyricAdvanceMs": 120,
