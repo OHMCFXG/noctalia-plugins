@@ -14,7 +14,9 @@ ColumnLayout {
       "requestTimeoutMs": pluginApi?.pluginSettings?.requestTimeoutMs !== undefined ? Number(pluginApi.pluginSettings.requestTimeoutMs) : 5000,
       "barMaxWidth": pluginApi?.pluginSettings?.barMaxWidth !== undefined ? Number(pluginApi.pluginSettings.barMaxWidth) : 340,
       "barHideWhenIdle": pluginApi?.pluginSettings?.barHideWhenIdle !== undefined ? !!pluginApi.pluginSettings.barHideWhenIdle : true,
-      "showBarStatusDot": pluginApi?.pluginSettings?.showBarStatusDot !== undefined ? !!pluginApi.pluginSettings.showBarStatusDot : true
+      "showBarStatusDot": pluginApi?.pluginSettings?.showBarStatusDot !== undefined ? !!pluginApi.pluginSettings.showBarStatusDot : true,
+      "primaryLyricsSource": pluginApi?.pluginSettings?.primaryLyricsSource || "lrclib",
+      "enableQQMusic": pluginApi?.pluginSettings?.enableQQMusic !== undefined ? !!pluginApi.pluginSettings.enableQQMusic : true
     })
 
   spacing: Style.marginL
@@ -34,7 +36,9 @@ ColumnLayout {
       "requestTimeoutMs": draftSettings.requestTimeoutMs,
       "barMaxWidth": draftSettings.barMaxWidth,
       "barHideWhenIdle": draftSettings.barHideWhenIdle,
-      "showBarStatusDot": draftSettings.showBarStatusDot
+      "showBarStatusDot": draftSettings.showBarStatusDot,
+      "primaryLyricsSource": draftSettings.primaryLyricsSource,
+      "enableQQMusic": draftSettings.enableQQMusic
     };
   }
 
@@ -161,5 +165,66 @@ ColumnLayout {
     checked: draftSettings.showBarStatusDot
     onToggled: checked => draftSettings.showBarStatusDot = checked
     defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.showBarStatusDot
+  }
+
+  Rectangle {
+    Layout.fillWidth: true
+    Layout.topMargin: Style.marginM
+    radius: Style.radiusM
+    color: Qt.alpha(Color.mPrimary, 0.08)
+    border.width: 1
+    border.color: Qt.alpha(Color.mPrimary, 0.18)
+    implicitHeight: sourcesColumn.implicitHeight + Style.marginL * 2
+
+    ColumnLayout {
+      id: sourcesColumn
+      anchors.fill: parent
+      anchors.margins: Style.marginL
+      spacing: Style.marginS
+
+      NText {
+        text: tr("settings.lyrics-sources-header", "Lyrics Sources")
+        color: Color.mPrimary
+        font.weight: Style.fontWeightBold
+      }
+
+      NText {
+        text: tr("settings.lyrics-sources-description", "Configure which lyrics sources to use and their priority order.")
+        wrapMode: Text.WordWrap
+        Layout.fillWidth: true
+      }
+    }
+  }
+
+  NComboBox {
+    Layout.fillWidth: true
+    label: tr("settings.primary-source-label", "Primary Lyrics Source")
+    description: tr("settings.primary-source-description", "The lyrics source to try first when searching for lyrics.")
+    model: [
+      { value: "lrclib", text: "LRCLib" },
+      { value: "qqmusic", text: "QQ Music" }
+    ]
+    valueRole: "value"
+    textRole: "text"
+    currentIndex: {
+      for (var i = 0; i < model.length; i++) {
+        if (model[i].value === draftSettings.primaryLyricsSource)
+          return i;
+      }
+      return 0;
+    }
+    onCurrentIndexChanged: {
+      if (model && model[currentIndex])
+        draftSettings.primaryLyricsSource = model[currentIndex].value;
+    }
+  }
+
+  NToggle {
+    Layout.fillWidth: true
+    label: tr("settings.enable-qqmusic-label", "Enable QQ Music")
+    description: tr("settings.enable-qqmusic-description", "Enable QQ Music as a fallback lyrics source.")
+    checked: draftSettings.enableQQMusic
+    onToggled: checked => draftSettings.enableQQMusic = checked
+    defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.enableQQMusic
   }
 }

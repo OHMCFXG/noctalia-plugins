@@ -25,6 +25,8 @@ Item {
   readonly property string currentTrackKey: LyricsHelpers.buildTrackKey(currentTrack)
   readonly property int lyricAdvanceMs: pluginApi?.pluginSettings?.lyricAdvanceMs !== undefined ? Number(pluginApi.pluginSettings.lyricAdvanceMs) : 120
   readonly property int requestTimeoutMs: pluginApi?.pluginSettings?.requestTimeoutMs !== undefined ? Number(pluginApi.pluginSettings.requestTimeoutMs) : 5000
+  readonly property string primaryLyricsSource: pluginApi?.pluginSettings?.primaryLyricsSource || "lrclib"
+  readonly property bool enableQQMusic: pluginApi?.pluginSettings?.enableQQMusic !== undefined ? pluginApi.pluginSettings.enableQQMusic : true
   readonly property string trackSummary: LyricsHelpers.formatTrack(currentTrack)
 
   property string fetchState: "idle"
@@ -194,6 +196,54 @@ Item {
     xhr.send();
   }
 
+  function requestJsonPost(url, body, token, callback) {
+    var xhr = new XMLHttpRequest();
+    var settled = false;
+
+    function finish(success, status, data, error) {
+      if (settled)
+        return;
+      settled = true;
+      callback(success, status, data, error || "");
+    }
+
+    xhr.open("POST", url);
+    xhr.setRequestHeader("Accept", "application/json");
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.setRequestHeader("User-Agent", "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)");
+    xhr.timeout = Math.max(1000, requestTimeoutMs);
+
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== XMLHttpRequest.DONE || token !== fetchToken)
+        return;
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          finish(true, xhr.status, JSON.parse(xhr.responseText), "");
+        } catch (error) {
+          finish(false, xhr.status, null, String(error));
+        }
+        return;
+      }
+
+      finish(false, xhr.status, null, xhr.responseText || ("HTTP " + xhr.status));
+    };
+
+    xhr.onerror = function () {
+      if (token !== fetchToken)
+        return;
+      finish(false, 0, null, "network error");
+    };
+
+    xhr.ontimeout = function () {
+      if (token !== fetchToken)
+        return;
+      finish(false, 0, null, "timeout");
+    };
+
+    xhr.send(JSON.stringify(body));
+  }
+
   function parseRecord(record) {
     var syncedLyrics = LyricsHelpers.parseLrc(record?.syncedLyrics || record?.synced_lyrics || "");
     if (syncedLyrics.length > 0) {
@@ -216,6 +266,209 @@ Item {
     }
 
     return null;
+  }
+
+  function searchQQMusic(keyword, token, callback) {
+    var url = "https://u.y.qq.com/cgi-bin/musicu.fcg";
+    var body = {
+      "comm": {
+        "ct": 19,
+        "cv": "1845",
+        "v": "1003006",
+        "os_ver": "12",
+        "phonetype": "0",
+        "devicelevel": "31",
+        "tmeAppID": "qqmusiclight",
+        "nettype": "NETWORK_WIFI"
+      },
+      "req": {
+        "module": "music.search.SearchCgiService",
+        "method": "DoSearchForQQMusicLite",
+        "param": {
+          "query": keyword,
+          "search_type": 0,
+          "num_per_page": 50,
+          "page_num": 0,
+          "nqc_flag": 0,
+          "grp": 0
+        }
+      }
+    };
+
+    requestJsonPost(url, body, token, callback);
+  }
+
+  function getQQMusicLyric(mid, token, callback) {
+    var url = "https://i.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg";
+    var params = {
+      "songmid": mid,
+      "g_tk": "5381",
+      "format": "json",
+      "inCharset": "utf8",
+      "outCharset": "utf-8",
+      "nobase64": "1"
+    };
+
+    var xhr = new XMLHttpRequest();
+    var settled = false;
+
+    function finish(success, status, data, error) {
+      if (settled)
+        return;
+      settled = true;
+      callback(success, status, data, error || "");
+    }
+
+    var query = LyricsHelpers.buildQuery(params);
+    xhr.open("GET", url + "?" + query);
+    xhr.setRequestHeader("Accept", "application/json");
+    xhr.setRequestHeader("Referer", "https://y.qq.com");
+    xhr.timeout = Math.max(1000, requestTimeoutMs);
+
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== XMLHttpRequest.DONE || token !== fetchToken)
+        return;
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          finish(true, xhr.status, JSON.parse(xhr.responseText), "");
+        } catch (error) {
+          finish(false, xhr.status, null, String(error));
+        }
+        return;
+      }
+
+      finish(false, xhr.status, null, xhr.responseText || ("HTTP " + xhr.status));
+    };
+
+    xhr.onerror = function () {
+      if (token !== fetchToken)
+        return;
+      finish(false, 0, null, "network error");
+    };
+
+    xhr.ontimeout = function () {
+      if (token !== fetchToken)
+        return;
+      finish(false, 0, null, "timeout");
+    };
+
+    xhr.send();
+  }
+
+  function findBestQQMusicMatch(songs) {
+    if (!songs || songs.length === 0)
+      return null;
+
+    var bestScore = -1;
+    var bestMatch = null;
+
+    for (var i = 0; i < songs.length; i++) {
+      var song = songs[i];
+      var title = LyricsHelpers.normalizeText(song.songname || "");
+      var album = LyricsHelpers.normalizeText(song.albumname || "");
+      var artists = [];
+
+      if (song.singer && Array.isArray(song.singer)) {
+        for (var j = 0; j < song.singer.length; j++) {
+          artists.push(LyricsHelpers.normalizeText(song.singer[j].name || ""));
+        }
+      }
+
+      var trackTitle = LyricsHelpers.normalizeText(currentTrack.title);
+      var trackArtist = LyricsHelpers.normalizeText(currentTrack.artist);
+      var trackAlbum = LyricsHelpers.normalizeText(currentTrack.album);
+
+      var score = 0;
+      score += LyricsHelpers.scoreTextMatch(trackTitle, title, 100, 55);
+
+      var bestArtistScore = 0;
+      for (var k = 0; k < artists.length; k++) {
+        var artistScore = LyricsHelpers.scoreTextMatch(trackArtist, artists[k], 70, 35);
+        if (artistScore > bestArtistScore)
+          bestArtistScore = artistScore;
+      }
+      score += bestArtistScore;
+
+      score += LyricsHelpers.scoreTextMatch(trackAlbum, album, 20, 10);
+
+      var durationMs = song.interval ? song.interval * 1000 : 0;
+      if (trackDurationSeconds > 0 && durationMs > 0) {
+        var trackDurationMs = trackDurationSeconds * 1000;
+        var diff = Math.abs(trackDurationMs - durationMs);
+        if (diff < 5000)
+          score += 35;
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = {
+          "mid": song.mid || "",
+          "score": score
+        };
+      }
+    }
+
+    return bestMatch;
+  }
+
+  function fetchQQMusicLyrics(cacheKey, token, callback) {
+    var keyword = trackArtist && trackTitle ? (trackArtist + " " + trackTitle) : (trackTitle || trackArtist);
+
+    if (!keyword) {
+      callback(null);
+      return;
+    }
+
+    searchQQMusic(keyword, token, function (success, status, data, error) {
+      if (token !== fetchToken || cacheKey !== currentTrackKey) {
+        callback(null);
+        return;
+      }
+
+      if (!success || !data) {
+        callback(null);
+        return;
+      }
+
+      var songs = data?.req?.data?.body?.item_song;
+      if (!songs || !Array.isArray(songs) || songs.length === 0) {
+        callback(null);
+        return;
+      }
+
+      var bestMatch = findBestQQMusicMatch(songs);
+      if (!bestMatch || !bestMatch.mid || bestMatch.score < 100) {
+        callback(null);
+        return;
+      }
+
+      getQQMusicLyric(bestMatch.mid, token, function (success, status, data, error) {
+        if (token !== fetchToken || cacheKey !== currentTrackKey) {
+          callback(null);
+          return;
+        }
+
+        if (!success || !data || !data.lyric) {
+          callback(null);
+          return;
+        }
+
+        var lrcText = data.lyric;
+        var parsed = LyricsHelpers.parseLrc(lrcText);
+
+        if (parsed.length > 0) {
+          callback({
+            "state": "ready",
+            "entries": parsed,
+            "plainLines": [],
+            "error": ""
+          });
+        } else {
+          callback(null);
+        }
+      });
+    });
   }
 
   function searchLyrics(cacheKey, token, fallbackResult) {
@@ -261,6 +514,24 @@ Item {
           return;
         }
 
+        if (enableQQMusic) {
+          fetchQQMusicLyrics(cacheKey, token, function (result) {
+            if (token !== fetchToken || cacheKey !== currentTrackKey)
+              return;
+            if (result) {
+              applyResult(result, cacheKey);
+            } else {
+              applyResult({
+                            "state": "empty",
+                            "entries": [],
+                            "plainLines": [],
+                            "error": ""
+                          }, cacheKey);
+            }
+          });
+          return;
+        }
+
         applyResult({
                       "state": "empty",
                       "entries": [],
@@ -272,6 +543,24 @@ Item {
 
       if (fallbackResult) {
         applyResult(fallbackResult, cacheKey);
+        return;
+      }
+
+      if (enableQQMusic) {
+        fetchQQMusicLyrics(cacheKey, token, function (result) {
+          if (token !== fetchToken || cacheKey !== currentTrackKey)
+            return;
+          if (result) {
+            applyResult(result, cacheKey);
+          } else {
+            applyResult({
+                          "state": (status === 404) ? "empty" : "error",
+                          "entries": [],
+                          "plainLines": [],
+                          "error": error
+                        }, cacheKey);
+          }
+        });
         return;
       }
 
@@ -309,6 +598,46 @@ Item {
     currentLineIndex = -1;
     lyricRevision++;
 
+    var token = fetchToken;
+
+    if (primaryLyricsSource === "qqmusic" && enableQQMusic) {
+      fetchQQMusicLyrics(cacheKey, token, function (result) {
+        if (token !== fetchToken || cacheKey !== currentTrackKey)
+          return;
+
+        if (result) {
+          applyResult(result, cacheKey);
+          return;
+        }
+
+        var exactParams = {
+          "track_name": trackTitle,
+          "artist_name": trackArtist
+        };
+
+        if (trackAlbum)
+          exactParams.album_name = trackAlbum;
+        if (trackDurationSeconds > 0)
+          exactParams.duration = String(trackDurationSeconds);
+
+        var exactUrl = "https://lrclib.net/api/get?" + LyricsHelpers.buildQuery(exactParams);
+
+        requestJson(exactUrl, token, function (success, status, data, error) {
+          if (token !== fetchToken || cacheKey !== currentTrackKey)
+            return;
+
+          var parsed = success ? parseRecord(data) : null;
+          if (parsed && parsed.state === "ready") {
+            applyResult(parsed, cacheKey);
+            return;
+          }
+
+          searchLyrics(cacheKey, token, parsed);
+        });
+      });
+      return;
+    }
+
     var exactParams = {
       "track_name": trackTitle,
       "artist_name": trackArtist
@@ -320,7 +649,6 @@ Item {
       exactParams.duration = String(trackDurationSeconds);
 
     var exactUrl = "https://lrclib.net/api/get?" + LyricsHelpers.buildQuery(exactParams);
-    var token = fetchToken;
 
     requestJson(exactUrl, token, function (success, status, data, error) {
       if (token !== fetchToken || cacheKey !== currentTrackKey)
