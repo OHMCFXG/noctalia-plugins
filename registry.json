@@ -8,8 +8,12 @@
       "official": false,
       "author": "hcx",
       "description": "Pure-QML synced lyrics for Noctalia bar and desktop widgets.",
-      "tags": [],
-      "lastUpdated": "2026-04-13T20:28:18+08:00"
+      "tags": [
+        "Bar",
+        "Desktop",
+        "Music"
+      ],
+      "lastUpdated": "2026-04-14T15:52:04+08:00"
     }
   ]
 }
