@@ -197,6 +197,7 @@ ColumnLayout {
   }
 
   NComboBox {
+    id: primarySourceCombo
     Layout.fillWidth: true
     label: tr("settings.primary-source-label", "Primary Lyrics Source")
     description: tr("settings.primary-source-description", "The lyrics source to try first when searching for lyrics.")
@@ -213,9 +214,9 @@ ColumnLayout {
       }
       return 0;
     }
-    onCurrentIndexChanged: {
-      if (model && model[currentIndex])
-        draftSettings.primaryLyricsSource = model[currentIndex].value;
+    onActivated: function(index) {
+      if (model && model[index])
+        draftSettings.primaryLyricsSource = model[index].value;
     }
   }
 

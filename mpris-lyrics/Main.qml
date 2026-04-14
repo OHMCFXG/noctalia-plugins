@@ -38,6 +38,7 @@ Item {
   property var lyricsCache: ({})
   property int fetchToken: 0
   property bool pendingForceRefresh: false
+  property string currentLyricsSource: ""
 
   readonly property bool hasSyncedLyrics: fetchState === "ready" && lyricsEntries.length > 0
   readonly property bool hasPlainLyrics: fetchState === "plain" && plainLyricsLines.length > 0
@@ -84,6 +85,12 @@ Item {
     parts.push(tr("status.state-prefix", "State: {state}", {
                     "state": stateLabel
                   }));
+    if (currentLyricsSource) {
+      var sourceName = currentLyricsSource === "qqmusic" ? "QQ Music" : "LRCLib";
+      parts.push(tr("status.source-prefix", "Source: {source}", {
+                      "source": sourceName
+                    }));
+    }
     return parts.join("\n");
   }
 
@@ -102,6 +109,7 @@ Item {
     lyricsEntries = [];
     plainLyricsLines = [];
     currentLineIndex = -1;
+    currentLyricsSource = "";
     lyricRevision++;
   }
 
@@ -110,7 +118,8 @@ Item {
       "state": "empty",
       "entries": [],
       "plainLines": [],
-      "error": ""
+      "error": "",
+      "source": ""
     };
 
     lyricsCache[cacheKey] = safeResult;
@@ -119,6 +128,7 @@ Item {
     errorText = LyricsHelpers.cleanText(safeResult.error);
     lyricsEntries = (safeResult.entries || []).slice();
     plainLyricsLines = (safeResult.plainLines || []).slice();
+    currentLyricsSource = (fetchState === "ready" || fetchState === "plain") ? (safeResult.source || "") : "";
 
     updateCurrentLineIndex(true);
   }
@@ -492,7 +502,8 @@ Item {
                     "state": "empty",
                     "entries": [],
                     "plainLines": [],
-                    "error": ""
+                    "error": "",
+                    "source": ""
                   }, cacheKey);
       return;
     }
@@ -505,11 +516,14 @@ Item {
         var candidate = LyricsHelpers.selectBestRecord(currentTrack, data);
         var parsedCandidate = parseRecord(candidate);
         if (parsedCandidate) {
+          parsedCandidate.source = "lrclib";
           applyResult(parsedCandidate, cacheKey);
           return;
         }
 
         if (fallbackResult) {
+          if (!fallbackResult.source)
+            fallbackResult.source = "lrclib";
           applyResult(fallbackResult, cacheKey);
           return;
         }
@@ -519,13 +533,15 @@ Item {
             if (token !== fetchToken || cacheKey !== currentTrackKey)
               return;
             if (result) {
+              result.source = "qqmusic";
               applyResult(result, cacheKey);
             } else {
               applyResult({
                             "state": "empty",
                             "entries": [],
                             "plainLines": [],
-                            "error": ""
+                            "error": "",
+                            "source": ""
                           }, cacheKey);
             }
           });
@@ -536,12 +552,15 @@ Item {
                       "state": "empty",
                       "entries": [],
                       "plainLines": [],
-                      "error": ""
+                      "error": "",
+                      "source": ""
                     }, cacheKey);
         return;
       }
 
       if (fallbackResult) {
+        if (!fallbackResult.source)
+          fallbackResult.source = "lrclib";
         applyResult(fallbackResult, cacheKey);
         return;
       }
@@ -551,13 +570,15 @@ Item {
           if (token !== fetchToken || cacheKey !== currentTrackKey)
             return;
           if (result) {
+            result.source = "qqmusic";
             applyResult(result, cacheKey);
           } else {
             applyResult({
                           "state": (status === 404) ? "empty" : "error",
                           "entries": [],
                           "plainLines": [],
-                          "error": error
+                          "error": error,
+                          "source": ""
                         }, cacheKey);
           }
         });
@@ -568,7 +589,8 @@ Item {
                     "state": (status === 404) ? "empty" : "error",
                     "entries": [],
                     "plainLines": [],
-                    "error": error
+                    "error": error,
+                    "source": ""
                   }, cacheKey);
     });
   }
@@ -606,6 +628,7 @@ Item {
           return;
 
         if (result) {
+          result.source = "qqmusic";
           applyResult(result, cacheKey);
           return;
         }
@@ -628,6 +651,7 @@ Item {
 
           var parsed = success ? parseRecord(data) : null;
           if (parsed && parsed.state === "ready") {
+            parsed.source = "lrclib";
             applyResult(parsed, cacheKey);
             return;
           }
@@ -656,6 +680,7 @@ Item {
 
       var parsed = success ? parseRecord(data) : null;
       if (parsed && parsed.state === "ready") {
+        parsed.source = "lrclib";
         applyResult(parsed, cacheKey);
         return;
       }
