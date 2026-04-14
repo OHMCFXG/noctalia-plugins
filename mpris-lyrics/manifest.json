@@ -11,6 +11,7 @@
     "settings": "Settings.qml",
     "desktopWidgetSettings": "DesktopWidgetSettings.qml"
   },
+  "tags": ["Bar", "Desktop", "Music"],
   "metadata": {
     "defaultSettings": {
       "lyricAdvanceMs": 120,
