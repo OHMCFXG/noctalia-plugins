@@ -11,12 +11,10 @@
     "plain": "找到了歌词，但没有时间轴",
     "empty": "没有找到歌词",
     "error": "歌词暂时不可用",
-    "source": "LRCLIB",
-    "source-prefix": "来源：{source}",
     "state-prefix": "状态：{state}"
   },
   "settings": {
-    "overview": "这个插件完全使用 QML 实现。播放时间轴来自 Noctalia 的 MediaService，歌词通过 LRCLIB 拉取并在插件内解析，不依赖 Rust 后端。",
+    "overview": "跟随当前媒体播放器，在 Bar 和桌面组件中显示同步歌词。",
     "advance-label": "歌词偏移",
     "advance-description": "根据播放器延迟，把歌词整体提前或延后。",
     "timeout-label": "请求超时",

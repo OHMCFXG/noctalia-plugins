@@ -3,7 +3,7 @@
   "name": "MPRIS Lyrics",
   "version": "1.0.0",
   "author": "hcx",
-  "description": "Pure-QML synced lyrics for Noctalia bar and desktop widgets.",
+  "description": "Synced lyrics for Noctalia bar and desktop widgets.",
   "entryPoints": {
     "main": "Main.qml",
     "barWidget": "BarWidget.qml",

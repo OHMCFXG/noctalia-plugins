@@ -1,19 +1,16 @@
 # MPRIS Lyrics
 
-Pure-QML synchronized lyrics plugin for Noctalia.
+Synchronized lyrics plugin for Noctalia.
 
 ## What It Does
 
 - Reads the active track and playback position from Noctalia's `MediaService`
-- Fetches lyrics from `LRCLIB`
-- Parses LRC inside QML/JS
+- Fetches and parses synced lyrics
 - Renders a compact line in the bar and a contextual lyrics card on the desktop
 
 ## Notes
 
-- This plugin does not use `mpris-lyrics-rs`
-- Synced lyrics require `syncedLyrics` to be available from `LRCLIB`
-- If only plain lyrics are available, the plugin shows them as unsynced fallback text
+- Plain lyrics are shown as a fallback when synced lyrics are unavailable
 
 ## Local Dev
 

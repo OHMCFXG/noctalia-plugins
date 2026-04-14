@@ -11,12 +11,10 @@
     "plain": "Lyrics found, but not time-coded",
     "empty": "No lyrics found",
     "error": "Lyrics unavailable",
-    "source": "LRCLIB",
-    "source-prefix": "Source: {source}",
     "state-prefix": "State: {state}"
   },
   "settings": {
-    "overview": "Pure QML lyrics fetcher powered by LRCLIB. Playback timing comes from Noctalia's MediaService, so the widget follows the active MPRIS player without the Rust backend.",
+    "overview": "Displays synced lyrics in the bar and desktop widget, following the active media player.",
     "advance-label": "Lyric Offset",
     "advance-description": "Shift lyrics forward or backward to match your player latency.",
     "timeout-label": "Request Timeout",

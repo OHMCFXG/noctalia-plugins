@@ -29,7 +29,6 @@ Item {
 
   property string fetchState: "idle"
   property string errorText: ""
-  property string lyricsSource: tr("status.source", "LRCLIB")
   property var lyricsEntries: []
   property var plainLyricsLines: []
   property int currentLineIndex: -1
@@ -83,9 +82,6 @@ Item {
     parts.push(tr("status.state-prefix", "State: {state}", {
                     "state": stateLabel
                   }));
-    parts.push(tr("status.source-prefix", "Source: {source}", {
-                    "source": lyricsSource
-                  }));
     return parts.join("\n");
   }
 
@@ -112,7 +108,6 @@ Item {
       "state": "empty",
       "entries": [],
       "plainLines": [],
-      "source": tr("status.source", "LRCLIB"),
       "error": ""
     };
 
@@ -120,7 +115,6 @@ Item {
 
     fetchState = safeResult.state || "empty";
     errorText = LyricsHelpers.cleanText(safeResult.error);
-    lyricsSource = LyricsHelpers.cleanText(safeResult.source || tr("status.source", "LRCLIB"));
     lyricsEntries = (safeResult.entries || []).slice();
     plainLyricsLines = (safeResult.plainLines || []).slice();
 
@@ -207,7 +201,6 @@ Item {
         "state": "ready",
         "entries": syncedLyrics,
         "plainLines": [],
-        "source": tr("status.source", "LRCLIB"),
         "error": ""
       };
     }
@@ -218,7 +211,6 @@ Item {
         "state": "plain",
         "entries": [],
         "plainLines": plainLyrics,
-        "source": tr("status.source", "LRCLIB"),
         "error": ""
       };
     }
@@ -247,7 +239,6 @@ Item {
                     "state": "empty",
                     "entries": [],
                     "plainLines": [],
-                    "source": tr("status.source", "LRCLIB"),
                     "error": ""
                   }, cacheKey);
       return;
@@ -274,7 +265,6 @@ Item {
                       "state": "empty",
                       "entries": [],
                       "plainLines": [],
-                      "source": tr("status.source", "LRCLIB"),
                       "error": ""
                     }, cacheKey);
         return;
@@ -289,7 +279,6 @@ Item {
                     "state": (status === 404) ? "empty" : "error",
                     "entries": [],
                     "plainLines": [],
-                    "source": tr("status.source", "LRCLIB"),
                     "error": error
                   }, cacheKey);
     });
@@ -315,7 +304,6 @@ Item {
     fetchToken++;
     fetchState = "loading";
     errorText = "";
-    lyricsSource = tr("status.source", "LRCLIB");
     lyricsEntries = [];
     plainLyricsLines = [];
     currentLineIndex = -1;

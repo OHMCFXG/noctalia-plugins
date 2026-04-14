@@ -269,7 +269,7 @@ DraggableDesktopWidget {
       NText {
         id: stateText
         anchors.centerIn: parent
-        text: service?.hasSyncedLyrics ? service.lyricsSource : statusText()
+        text: statusText()
         pointSize: Math.max(11, currentFontSize * 0.42)
         color: root.rowColor(service?.fetchState === "ready" ? "current" : "status")
       }

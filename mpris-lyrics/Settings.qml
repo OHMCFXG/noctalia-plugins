@@ -58,7 +58,7 @@ ColumnLayout {
       spacing: Style.marginS
 
       NText {
-        text: tr("settings.overview", "Pure QML lyrics fetcher powered by LRCLIB. Playback timing comes from Noctalia's MediaService, so the widget follows the active MPRIS player without the Rust backend.")
+        text: tr("settings.overview", "Displays synced lyrics in the bar and desktop widget, following the active media player.")
         wrapMode: Text.WordWrap
         Layout.fillWidth: true
       }
