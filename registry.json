@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "plugins": [
+    {
+      "id": "mpris-lyrics",
+      "name": "MPRIS Lyrics",
+      "version": "1.0.0",
+      "official": false,
+      "author": "hcx",
+      "description": "Pure-QML synced lyrics for Noctalia bar and desktop widgets.",
+      "tags": [],
+      "lastUpdated": "2026-04-13T20:28:18+08:00"
+    }
+  ]
+}
