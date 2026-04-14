@@ -196,27 +196,20 @@ ColumnLayout {
     }
   }
 
+  property int primarySourceIndex: {
+    var source = draftSettings.primaryLyricsSource;
+    return source === "qqmusic" ? 1 : 0;
+  }
+
   NComboBox {
-    id: primarySourceCombo
     Layout.fillWidth: true
     label: tr("settings.primary-source-label", "Primary Lyrics Source")
     description: tr("settings.primary-source-description", "The lyrics source to try first when searching for lyrics.")
-    model: [
-      { value: "lrclib", text: "LRCLib" },
-      { value: "qqmusic", text: "QQ Music" }
-    ]
-    valueRole: "value"
-    textRole: "text"
-    currentIndex: {
-      for (var i = 0; i < model.length; i++) {
-        if (model[i].value === draftSettings.primaryLyricsSource)
-          return i;
-      }
-      return 0;
-    }
-    onActivated: function(index) {
-      if (model && model[index])
-        draftSettings.primaryLyricsSource = model[index].value;
+    model: ["LRCLib", "QQ Music"]
+    currentIndex: root.primarySourceIndex
+    onCurrentIndexChanged: {
+      root.primarySourceIndex = currentIndex;
+      draftSettings.primaryLyricsSource = currentIndex === 1 ? "qqmusic" : "lrclib";
     }
   }
 
