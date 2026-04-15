@@ -12,11 +12,35 @@ Item {
   width: 0
   height: 0
 
-  readonly property bool hasPlayer: MediaService.currentPlayer !== null
-  readonly property string trackTitle: LyricsHelpers.cleanText(MediaService.trackTitle)
-  readonly property string trackArtist: LyricsHelpers.cleanText(MediaService.trackArtist)
-  readonly property string trackAlbum: LyricsHelpers.cleanText(MediaService.trackAlbum)
-  readonly property int trackDurationSeconds: Math.max(0, Math.round(Number(MediaService.trackLength || 0)))
+  readonly property string playerFilterMode: {
+    var mode = pluginApi?.pluginSettings?.playerFilterMode;
+    return mode === "blacklist" || mode === "whitelist" ? mode : "off";
+  }
+  readonly property var playerFilterList: {
+    var rules = pluginApi?.pluginSettings?.playerFilterList;
+    if (!Array.isArray(rules))
+      return [];
+
+    var normalized = [];
+    var seen = {};
+    for (var i = 0; i < rules.length; i++) {
+      var rule = String(rules[i] || "").trim();
+      var key = rule.toLowerCase();
+      if (!rule || seen[key])
+        continue;
+      seen[key] = true;
+      normalized.push(rule);
+    }
+
+    return normalized;
+  }
+  readonly property string currentPlayerIdentity: LyricsHelpers.cleanText(MediaService.currentPlayer ? (MediaService.currentPlayer.identity || "") : "")
+  readonly property string currentPlayerDesktopEntry: LyricsHelpers.cleanText(MediaService.currentPlayer ? (MediaService.currentPlayer.desktopEntry || "") : "")
+  readonly property bool hasPlayer: isCurrentPlayerAllowed()
+  readonly property string trackTitle: hasPlayer ? LyricsHelpers.cleanText(MediaService.trackTitle) : ""
+  readonly property string trackArtist: hasPlayer ? LyricsHelpers.cleanText(MediaService.trackArtist) : ""
+  readonly property string trackAlbum: hasPlayer ? LyricsHelpers.cleanText(MediaService.trackAlbum) : ""
+  readonly property int trackDurationSeconds: hasPlayer ? Math.max(0, Math.round(Number(MediaService.trackLength || 0))) : 0
   readonly property var currentTrack: ({
       "title": trackTitle,
       "artist": trackArtist,
@@ -103,6 +127,51 @@ Item {
         return translated;
     }
     return fallback;
+  }
+
+  function playerFilterValue(value) {
+    if (value === undefined || value === null)
+      return "";
+    return String(value).trim().toLowerCase();
+  }
+
+  function currentPlayerMatchesRule(rule) {
+    var matchText = playerFilterValue(rule);
+    if (!matchText)
+      return false;
+
+    var identity = playerFilterValue(currentPlayerIdentity);
+    if (identity && identity.indexOf(matchText) >= 0)
+      return true;
+
+    var desktopEntry = playerFilterValue(currentPlayerDesktopEntry);
+    if (desktopEntry && desktopEntry.indexOf(matchText) >= 0)
+      return true;
+
+    return false;
+  }
+
+  function isCurrentPlayerAllowed() {
+    if (!MediaService.currentPlayer)
+      return false;
+
+    if (playerFilterMode === "off")
+      return true;
+
+    var hasMatch = false;
+    for (var i = 0; i < playerFilterList.length; i++) {
+      if (currentPlayerMatchesRule(playerFilterList[i])) {
+        hasMatch = true;
+        break;
+      }
+    }
+
+    if (playerFilterMode === "blacklist")
+      return !hasMatch;
+    if (playerFilterMode === "whitelist")
+      return hasMatch;
+
+    return true;
   }
 
   function resetState(newState) {

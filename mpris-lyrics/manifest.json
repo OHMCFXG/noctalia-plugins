@@ -24,7 +24,9 @@
       "barHideWhenIdle": true,
       "showBarStatusDot": true,
       "primaryLyricsSource": "lrclib",
-      "enableQQMusic": true
+      "enableQQMusic": true,
+      "playerFilterMode": "off",
+      "playerFilterList": []
     },
     "showBackground": true,
     "roundedCorners": true,
