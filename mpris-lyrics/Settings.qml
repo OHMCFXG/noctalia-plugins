@@ -135,47 +135,6 @@ ColumnLayout {
   Rectangle {
     Layout.fillWidth: true
     radius: Style.radiusM
-    color: Color.mSurfaceVariant
-    border.width: 1
-    border.color: Qt.alpha(Color.mOutline, 0.16)
-    implicitHeight: statusColumn.implicitHeight + Style.marginL * 2
-
-    ColumnLayout {
-      id: statusColumn
-      anchors.fill: parent
-      anchors.margins: Style.marginL
-      spacing: Style.marginS
-
-      NText {
-        text: tr("settings.current-track-label", "Current Track")
-        color: Color.mPrimary
-        font.weight: Style.fontWeightBold
-      }
-
-      NText {
-        Layout.fillWidth: true
-        text: pluginApi?.mainInstance?.trackSummary || tr("status.idle", "No active player")
-        wrapMode: Text.WordWrap
-      }
-
-      NText {
-        text: tr("settings.current-state-label", "Lyrics State")
-        color: Color.mPrimary
-        font.weight: Style.fontWeightBold
-        Layout.topMargin: Style.marginS
-      }
-
-      NText {
-        Layout.fillWidth: true
-        text: pluginApi?.mainInstance?.stateLabel || tr("status.idle", "No active player")
-        wrapMode: Text.WordWrap
-      }
-    }
-  }
-
-  Rectangle {
-    Layout.fillWidth: true
-    radius: Style.radiusM
     color: Qt.alpha(Color.mPrimary, 0.08)
     border.width: 1
     border.color: Qt.alpha(Color.mPrimary, 0.18)
