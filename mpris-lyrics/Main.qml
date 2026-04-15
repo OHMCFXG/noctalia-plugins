@@ -1,6 +1,8 @@
 import QtQuick
+import Quickshell.Io
 import qs.Services.Media
 import "lib/LyricsHelpers.js" as LyricsHelpers
+import "lib/QQMusicCurl.js" as QQMusicCurl
 
 Item {
   id: root
@@ -206,52 +208,14 @@ Item {
     xhr.send();
   }
 
-  function requestJsonPost(url, body, token, callback) {
-    var xhr = new XMLHttpRequest();
-    var settled = false;
+  Component {
+    id: qqMusicCurlProcessComponent
 
-    function finish(success, status, data, error) {
-      if (settled)
-        return;
-      settled = true;
-      callback(success, status, data, error || "");
+    Process {
+      running: false
+      stdout: StdioCollector {}
+      stderr: StdioCollector {}
     }
-
-    xhr.open("POST", url);
-    xhr.setRequestHeader("Accept", "application/json");
-    xhr.setRequestHeader("Content-Type", "application/json");
-    xhr.setRequestHeader("User-Agent", "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)");
-    xhr.timeout = Math.max(1000, requestTimeoutMs);
-
-    xhr.onreadystatechange = function () {
-      if (xhr.readyState !== XMLHttpRequest.DONE || token !== fetchToken)
-        return;
-
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          finish(true, xhr.status, JSON.parse(xhr.responseText), "");
-        } catch (error) {
-          finish(false, xhr.status, null, String(error));
-        }
-        return;
-      }
-
-      finish(false, xhr.status, null, xhr.responseText || ("HTTP " + xhr.status));
-    };
-
-    xhr.onerror = function () {
-      if (token !== fetchToken)
-        return;
-      finish(false, 0, null, "network error");
-    };
-
-    xhr.ontimeout = function () {
-      if (token !== fetchToken)
-        return;
-      finish(false, 0, null, "timeout");
-    };
-
-    xhr.send(JSON.stringify(body));
   }
 
   function parseRecord(record) {
@@ -278,92 +242,46 @@ Item {
     return null;
   }
 
-  function searchQQMusic(keyword, token, callback) {
-    var url = "https://u.y.qq.com/cgi-bin/musicu.fcg";
-    var body = {
-      "comm": {
-        "ct": 19,
-        "cv": "1845",
-        "v": "1003006",
-        "os_ver": "12",
-        "phonetype": "0",
-        "devicelevel": "31",
-        "tmeAppID": "qqmusiclight",
-        "nettype": "NETWORK_WIFI"
-      },
-      "req": {
-        "module": "music.search.SearchCgiService",
-        "method": "DoSearchForQQMusicLite",
-        "param": {
-          "query": keyword,
-          "search_type": 0,
-          "num_per_page": 50,
-          "page_num": 0,
-          "nqc_flag": 0,
-          "grp": 0
-        }
-      }
-    };
+  function runQQMusicCurl(command, cacheKey, token, parseResponse, callback) {
+    var process = qqMusicCurlProcessComponent.createObject(root, {
+      "command": command
+    });
 
-    requestJsonPost(url, body, token, callback);
-  }
-
-  function getQQMusicLyric(mid, token, callback) {
-    var url = "https://i.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg";
-    var params = {
-      "songmid": mid,
-      "g_tk": "5381",
-      "format": "json",
-      "inCharset": "utf8",
-      "outCharset": "utf-8",
-      "nobase64": "1"
-    };
-
-    var xhr = new XMLHttpRequest();
-    var settled = false;
-
-    function finish(success, status, data, error) {
-      if (settled)
-        return;
-      settled = true;
-      callback(success, status, data, error || "");
+    if (!process) {
+      callback(false, 0, null, "failed to create process");
+      return;
     }
 
-    var query = LyricsHelpers.buildQuery(params);
-    xhr.open("GET", url + "?" + query);
-    xhr.setRequestHeader("Accept", "application/json");
-    xhr.setRequestHeader("Referer", "https://y.qq.com");
-    xhr.timeout = Math.max(1000, requestTimeoutMs);
+    process.exited.connect(function (exitCode) {
+      var stdoutText = process.stdout ? String(process.stdout.text || "") : "";
+      var stderrText = process.stderr ? String(process.stderr.text || "") : "";
 
-    xhr.onreadystatechange = function () {
-      if (xhr.readyState !== XMLHttpRequest.DONE || token !== fetchToken)
-        return;
-
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          finish(true, xhr.status, JSON.parse(xhr.responseText), "");
-        } catch (error) {
-          finish(false, xhr.status, null, String(error));
-        }
+      if (token !== fetchToken || cacheKey !== currentTrackKey) {
+        process.destroy();
+        callback(false, exitCode, null, "stale");
         return;
       }
 
-      finish(false, xhr.status, null, xhr.responseText || ("HTTP " + xhr.status));
-    };
-
-    xhr.onerror = function () {
-      if (token !== fetchToken)
+      if (exitCode !== 0) {
+        process.destroy();
+        callback(false, exitCode, null, stderrText || ("curl exit " + exitCode));
         return;
-      finish(false, 0, null, "network error");
-    };
+      }
 
-    xhr.ontimeout = function () {
-      if (token !== fetchToken)
-        return;
-      finish(false, 0, null, "timeout");
-    };
+      var parsed = parseResponse(stdoutText);
+      process.destroy();
+      callback(parsed.ok, 200, parsed.data, parsed.error);
+    });
 
-    xhr.send();
+    process.running = true;
+  }
+
+  function searchQQMusic(keyword, cacheKey, token, callback) {
+    runQQMusicCurl(QQMusicCurl.buildSearchCommand(keyword, requestTimeoutMs), cacheKey, token, QQMusicCurl.parseSearchResponseText, callback);
+  }
+
+  function getQQMusicLyric(mid, cacheKey, token, callback) {
+    runQQMusicCurl(QQMusicCurl.buildLyricCommand(mid, requestTimeoutMs), cacheKey, token, QQMusicCurl.parseLyricResponseText, callback);
   }
 
   function findBestQQMusicMatch(songs) {
@@ -375,8 +293,8 @@ Item {
 
     for (var i = 0; i < songs.length; i++) {
       var song = songs[i];
-      var title = LyricsHelpers.normalizeText(song.songname || "");
-      var album = LyricsHelpers.normalizeText(song.albumname || "");
+      var title = LyricsHelpers.normalizeText(song.songname || song.name || song.title || "");
+      var album = LyricsHelpers.normalizeText(song.albumname || song.album?.name || song.album?.title || "");
       var artists = [];
 
       if (song.singer && Array.isArray(song.singer)) {
@@ -430,7 +348,7 @@ Item {
       return;
     }
 
-    searchQQMusic(keyword, token, function (success, status, data, error) {
+    searchQQMusic(keyword, cacheKey, token, function (success, status, data, error) {
       if (token !== fetchToken || cacheKey !== currentTrackKey) {
         callback(null);
         return;
@@ -453,7 +371,7 @@ Item {
         return;
       }
 
-      getQQMusicLyric(bestMatch.mid, token, function (success, status, data, error) {
+      getQQMusicLyric(bestMatch.mid, cacheKey, token, function (success, status, data, error) {
         if (token !== fetchToken || cacheKey !== currentTrackKey) {
           callback(null);
           return;
@@ -749,5 +667,7 @@ Item {
     onTriggered: root.updateCurrentLineIndex(false)
   }
 
-  Component.onCompleted: scheduleLyricsRefresh(false)
+  Component.onCompleted: {
+    scheduleLyricsRefresh(false);
+  }
 }
