@@ -110,54 +110,18 @@ ColumnLayout {
     pluginApi.saveSettings();
   }
 
-  Rectangle {
+  NText {
     Layout.fillWidth: true
-    radius: Style.radiusM
-    color: Qt.alpha(Color.mPrimary, 0.08)
-    border.width: 1
-    border.color: Qt.alpha(Color.mPrimary, 0.18)
-    implicitHeight: introColumn.implicitHeight + Style.marginL * 2
-
-    ColumnLayout {
-      id: introColumn
-      anchors.fill: parent
-      anchors.margins: Style.marginL
-      spacing: Style.marginS
-
-      NText {
-        text: tr("settings.overview", "Displays synced lyrics in the bar and desktop widget, following the active media player.")
-        wrapMode: Text.WordWrap
-        Layout.fillWidth: true
-      }
-    }
+    text: tr("settings.overview", "Displays synced lyrics in the bar and desktop widget, following the active media player.")
+    wrapMode: Text.WordWrap
   }
 
-  Rectangle {
+  NText {
     Layout.fillWidth: true
-    radius: Style.radiusM
-    color: Qt.alpha(Color.mPrimary, 0.08)
-    border.width: 1
-    border.color: Qt.alpha(Color.mPrimary, 0.18)
-    implicitHeight: filterColumn.implicitHeight + Style.marginL * 2
-
-    ColumnLayout {
-      id: filterColumn
-      anchors.fill: parent
-      anchors.margins: Style.marginL
-      spacing: Style.marginS
-
-      NText {
-        text: tr("settings.player-filter-header", "Player Filter")
-        color: Color.mPrimary
-        font.weight: Style.fontWeightBold
-      }
-
-      NText {
-        text: tr("settings.player-filter-description", "Limit which media players this plugin is allowed to handle.")
-        wrapMode: Text.WordWrap
-        Layout.fillWidth: true
-      }
-    }
+    text: tr("settings.section-player-filter", "Player Filter")
+    color: Color.mPrimary
+    font.weight: Style.fontWeightBold
+    Layout.topMargin: Style.marginS
   }
 
   NComboBox {
@@ -248,17 +212,31 @@ ColumnLayout {
     }
   }
 
-  NSpinBox {
+  NText {
     Layout.fillWidth: true
-    label: tr("settings.advance-label", "Lyric Offset")
-    description: tr("settings.advance-description", "Shift lyrics forward or backward to match your player latency.")
-    from: -1500
-    to: 1500
-    stepSize: 20
-    suffix: " ms"
-    value: draftSettings.lyricAdvanceMs
-    onValueChanged: draftSettings.lyricAdvanceMs = value
-    defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.lyricAdvanceMs
+    text: tr("settings.section-lyrics-fetch", "Lyrics Fetch")
+    color: Color.mPrimary
+    font.weight: Style.fontWeightBold
+    Layout.topMargin: Style.marginS
+  }
+
+  NComboBox {
+    Layout.fillWidth: true
+    label: tr("settings.primary-source-label", "Primary Lyrics Source")
+    description: tr("settings.primary-source-description", "The lyrics source to try first when searching for lyrics.")
+    model: [
+      {
+        "key": "lrclib",
+        "name": "LRCLib"
+      },
+      {
+        "key": "qqmusic",
+        "name": "QQ Music"
+      }
+    ]
+    currentKey: draftSettings.primaryLyricsSource === "qqmusic" ? "qqmusic" : "lrclib"
+    onSelected: key => draftSettings.primaryLyricsSource = key
+    defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.primaryLyricsSource
   }
 
   NSpinBox {
@@ -276,15 +254,32 @@ ColumnLayout {
 
   NSpinBox {
     Layout.fillWidth: true
-    label: tr("settings.bar-width-label", "Bar Max Width")
-    description: tr("settings.bar-width-description", "In adaptive mode this is the maximum width. In fixed mode this becomes the locked width.")
-    from: 180
-    to: 640
-    stepSize: 10
-    suffix: " px"
-    value: draftSettings.barMaxWidth
-    onValueChanged: draftSettings.barMaxWidth = value
-    defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.barMaxWidth
+    label: tr("settings.advance-label", "Lyric Offset")
+    description: tr("settings.advance-description", "Shift lyrics forward or backward to match your player latency.")
+    from: -1500
+    to: 1500
+    stepSize: 20
+    suffix: " ms"
+    value: draftSettings.lyricAdvanceMs
+    onValueChanged: draftSettings.lyricAdvanceMs = value
+    defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.lyricAdvanceMs
+  }
+
+  NToggle {
+    Layout.fillWidth: true
+    label: tr("settings.enable-qqmusic-label", "Enable QQ Music")
+    description: tr("settings.enable-qqmusic-description", "Enable QQ Music lyrics source.")
+    checked: draftSettings.enableQQMusic
+    onToggled: checked => draftSettings.enableQQMusic = checked
+    defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.enableQQMusic
+  }
+
+  NText {
+    Layout.fillWidth: true
+    text: tr("settings.section-bar-display", "Bar Display")
+    color: Color.mPrimary
+    font.weight: Style.fontWeightBold
+    Layout.topMargin: Style.marginS
   }
 
   NComboBox {
@@ -308,6 +303,19 @@ ColumnLayout {
     defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.barWidthMode
   }
 
+  NSpinBox {
+    Layout.fillWidth: true
+    label: tr("settings.bar-width-label", "Bar Max Width")
+    description: tr("settings.bar-width-description", "In adaptive mode this is the maximum width. In fixed mode this becomes the locked width.")
+    from: 180
+    to: 640
+    stepSize: 10
+    suffix: " px"
+    value: draftSettings.barMaxWidth
+    onValueChanged: draftSettings.barMaxWidth = value
+    defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.barMaxWidth
+  }
+
   NToggle {
     Layout.fillWidth: true
     label: tr("settings.bar-hide-label", "Hide Bar When Idle")
@@ -324,62 +332,5 @@ ColumnLayout {
     checked: draftSettings.showBarStatusDot
     onToggled: checked => draftSettings.showBarStatusDot = checked
     defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.showBarStatusDot
-  }
-
-  Rectangle {
-    Layout.fillWidth: true
-    Layout.topMargin: Style.marginM
-    radius: Style.radiusM
-    color: Qt.alpha(Color.mPrimary, 0.08)
-    border.width: 1
-    border.color: Qt.alpha(Color.mPrimary, 0.18)
-    implicitHeight: sourcesColumn.implicitHeight + Style.marginL * 2
-
-    ColumnLayout {
-      id: sourcesColumn
-      anchors.fill: parent
-      anchors.margins: Style.marginL
-      spacing: Style.marginS
-
-      NText {
-        text: tr("settings.lyrics-sources-header", "Lyrics Sources")
-        color: Color.mPrimary
-        font.weight: Style.fontWeightBold
-      }
-
-      NText {
-        text: tr("settings.lyrics-sources-description", "Configure which lyrics sources to use and their priority order.")
-        wrapMode: Text.WordWrap
-        Layout.fillWidth: true
-      }
-    }
-  }
-
-  NComboBox {
-    Layout.fillWidth: true
-    label: tr("settings.primary-source-label", "Primary Lyrics Source")
-    description: tr("settings.primary-source-description", "The lyrics source to try first when searching for lyrics.")
-    model: [
-      {
-        "key": "lrclib",
-        "name": "LRCLib"
-      },
-      {
-        "key": "qqmusic",
-        "name": "QQ Music"
-      }
-    ]
-    currentKey: draftSettings.primaryLyricsSource === "qqmusic" ? "qqmusic" : "lrclib"
-    onSelected: key => draftSettings.primaryLyricsSource = key
-    defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.primaryLyricsSource
-  }
-
-  NToggle {
-    Layout.fillWidth: true
-    label: tr("settings.enable-qqmusic-label", "Enable QQ Music")
-    description: tr("settings.enable-qqmusic-description", "Enable QQ Music lyrics source.")
-    checked: draftSettings.enableQQMusic
-    onToggled: checked => draftSettings.enableQQMusic = checked
-    defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.enableQQMusic
   }
 }
