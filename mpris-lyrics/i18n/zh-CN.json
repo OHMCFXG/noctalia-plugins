@@ -31,7 +31,7 @@
     "primary-source-label": "首选歌词来源",
     "primary-source-description": "搜索歌词时优先尝试的来源。",
     "enable-qqmusic-label": "启用 QQ Music",
-    "enable-qqmusic-description": "启用 QQ Music 作为歌词兜底来源。",
+    "enable-qqmusic-description": "启用 QQ Music 歌词源。",
     "current-track-label": "当前歌曲",
     "current-track-description": "MediaService 当前暴露出来的曲目信息。",
     "current-state-label": "歌词状态",

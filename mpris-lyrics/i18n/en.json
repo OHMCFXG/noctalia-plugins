@@ -31,7 +31,7 @@
     "primary-source-label": "Primary Lyrics Source",
     "primary-source-description": "The lyrics source to try first when searching for lyrics.",
     "enable-qqmusic-label": "Enable QQ Music",
-    "enable-qqmusic-description": "Enable QQ Music as a fallback lyrics source.",
+    "enable-qqmusic-description": "Enable QQ Music lyrics source.",
     "current-track-label": "Current Track",
     "current-track-description": "Track metadata currently exposed by MediaService.",
     "current-state-label": "Lyrics State",

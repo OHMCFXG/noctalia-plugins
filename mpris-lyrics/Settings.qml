@@ -218,7 +218,7 @@ ColumnLayout {
   NToggle {
     Layout.fillWidth: true
     label: tr("settings.enable-qqmusic-label", "Enable QQ Music")
-    description: tr("settings.enable-qqmusic-description", "Enable QQ Music as a fallback lyrics source.")
+    description: tr("settings.enable-qqmusic-description", "Enable QQ Music lyrics source.")
     checked: draftSettings.enableQQMusic
     onToggled: checked => draftSettings.enableQQMusic = checked
     defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.enableQQMusic
