@@ -20,7 +20,11 @@ Item {
   readonly property var service: pluginApi?.mainInstance || null
   readonly property string screenName: screen ? screen.name : ""
   readonly property real capsuleHeight: Style.getCapsuleHeightForScreen(screenName)
-  readonly property real maxWidth: pluginApi?.pluginSettings?.barMaxWidth !== undefined ? Number(pluginApi.pluginSettings.barMaxWidth) : 340
+  readonly property real maxWidth: pluginApi?.pluginSettings?.barMaxWidth !== undefined ? Number(pluginApi.pluginSettings.barMaxWidth) : 180
+  readonly property string barWidthMode: {
+    var mode = pluginApi?.pluginSettings?.barWidthMode;
+    return mode === "fixed" ? "fixed" : "adaptive";
+  }
   readonly property bool hideWhenIdle: pluginApi?.pluginSettings?.barHideWhenIdle !== undefined ? !!pluginApi.pluginSettings.barHideWhenIdle : true
   readonly property bool showStatusDot: pluginApi?.pluginSettings?.showBarStatusDot !== undefined ? !!pluginApi.pluginSettings.showBarStatusDot : true
   readonly property bool shouldHide: hideWhenIdle && !(service?.hasActiveTrack || false)
@@ -33,6 +37,7 @@ Item {
       total += dotSize + Style.marginS;
     return Math.min(maxWidth, Math.max(total, showStatusDot ? 72 : 56));
   }
+  readonly property real targetWidth: barWidthMode === "fixed" ? maxWidth : contentWidth
 
   function statusColor() {
     if (!service)
@@ -68,7 +73,7 @@ Item {
     }
   }
 
-  implicitWidth: shouldHide ? 0 : contentWidth
+  implicitWidth: shouldHide ? 0 : targetWidth
   implicitHeight: capsuleHeight
   opacity: shouldHide ? 0 : 1
   visible: !shouldHide || opacity > 0

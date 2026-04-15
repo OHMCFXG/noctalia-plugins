@@ -20,7 +20,8 @@
     "defaultSettings": {
       "lyricAdvanceMs": 120,
       "requestTimeoutMs": 5000,
-      "barMaxWidth": 340,
+      "barMaxWidth": 180,
+      "barWidthMode": "adaptive",
       "barHideWhenIdle": true,
       "showBarStatusDot": true,
       "primaryLyricsSource": "lrclib",

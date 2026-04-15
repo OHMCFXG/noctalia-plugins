@@ -12,7 +12,8 @@ ColumnLayout {
   property var draftSettings: ({
       "lyricAdvanceMs": pluginApi?.pluginSettings?.lyricAdvanceMs !== undefined ? Number(pluginApi.pluginSettings.lyricAdvanceMs) : 120,
       "requestTimeoutMs": pluginApi?.pluginSettings?.requestTimeoutMs !== undefined ? Number(pluginApi.pluginSettings.requestTimeoutMs) : 5000,
-      "barMaxWidth": pluginApi?.pluginSettings?.barMaxWidth !== undefined ? Number(pluginApi.pluginSettings.barMaxWidth) : 340,
+      "barMaxWidth": pluginApi?.pluginSettings?.barMaxWidth !== undefined ? Number(pluginApi.pluginSettings.barMaxWidth) : 180,
+      "barWidthMode": pluginApi?.pluginSettings?.barWidthMode === "fixed" ? "fixed" : "adaptive",
       "barHideWhenIdle": pluginApi?.pluginSettings?.barHideWhenIdle !== undefined ? !!pluginApi.pluginSettings.barHideWhenIdle : true,
       "showBarStatusDot": pluginApi?.pluginSettings?.showBarStatusDot !== undefined ? !!pluginApi.pluginSettings.showBarStatusDot : true,
       "primaryLyricsSource": pluginApi?.pluginSettings?.primaryLyricsSource || "lrclib",
@@ -57,6 +58,7 @@ ColumnLayout {
       "lyricAdvanceMs": draftSettings.lyricAdvanceMs,
       "requestTimeoutMs": draftSettings.requestTimeoutMs,
       "barMaxWidth": draftSettings.barMaxWidth,
+      "barWidthMode": draftSettings.barWidthMode,
       "barHideWhenIdle": draftSettings.barHideWhenIdle,
       "showBarStatusDot": draftSettings.showBarStatusDot,
       "primaryLyricsSource": draftSettings.primaryLyricsSource,
@@ -316,7 +318,7 @@ ColumnLayout {
   NSpinBox {
     Layout.fillWidth: true
     label: tr("settings.bar-width-label", "Bar Max Width")
-    description: tr("settings.bar-width-description", "Maximum width used by the bar widget before the lyric starts scrolling.")
+    description: tr("settings.bar-width-description", "In adaptive mode this is the maximum width. In fixed mode this becomes the locked width.")
     from: 180
     to: 640
     stepSize: 10
@@ -324,6 +326,27 @@ ColumnLayout {
     value: draftSettings.barMaxWidth
     onValueChanged: draftSettings.barMaxWidth = value
     defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.barMaxWidth
+  }
+
+  NComboBox {
+    Layout.fillWidth: true
+    label: tr("settings.bar-width-mode-label", "Bar Width Mode")
+    description: tr("settings.bar-width-mode-description", "Choose whether the bar width follows the current lyric or stays fixed.")
+    model: [
+      {
+        "key": "adaptive",
+        "name": tr("settings.bar-width-mode-adaptive", "Adaptive")
+      },
+      {
+        "key": "fixed",
+        "name": tr("settings.bar-width-mode-fixed", "Fixed")
+      }
+    ]
+    currentKey: draftSettings.barWidthMode
+    onSelected: key => replaceDraftSettings({
+                                              "barWidthMode": key
+                                            })
+    defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.barWidthMode
   }
 
   NToggle {
