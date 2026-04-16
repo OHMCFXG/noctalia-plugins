@@ -254,8 +254,8 @@ ColumnLayout {
 
   NSpinBox {
     Layout.fillWidth: true
-    label: tr("settings.advance-label", "Lyric Offset")
-    description: tr("settings.advance-description", "Shift lyrics forward or backward to match your player latency.")
+    label: tr("settings.advance-label", "Lyric Advance")
+    description: tr("settings.advance-description", "Positive values show lyrics earlier. Negative values show them later.")
     from: -1500
     to: 1500
     stepSize: 20
