@@ -49,11 +49,25 @@ Item {
     })
   readonly property bool hasActiveTrack: hasPlayer && (trackTitle !== "" || trackArtist !== "")
   readonly property string currentTrackKey: LyricsHelpers.buildTrackKey(currentTrack)
-  readonly property int lyricAdvanceMs: pluginApi?.pluginSettings?.lyricAdvanceMs !== undefined ? Number(pluginApi.pluginSettings.lyricAdvanceMs) : 120
+  readonly property var currentPlaybackSource: {
+    var player = MediaService.currentPlayer;
+    if (player && player._stateSource)
+      return player._stateSource;
+    return player || null;
+  }
+  readonly property string directMprisPlayerName: LyricsHelpers.playerctlNameFromDbusName(currentPlaybackSource ? (currentPlaybackSource.dbusName || "") : "")
+  readonly property bool directMprisMonitorWanted: hasActiveTrack && directMprisPlayerName !== ""
+  readonly property int lyricAdvanceMs: pluginApi?.pluginSettings?.lyricAdvanceMs !== undefined ? Number(pluginApi.pluginSettings.lyricAdvanceMs) : 300
   readonly property int requestTimeoutMs: pluginApi?.pluginSettings?.requestTimeoutMs !== undefined ? Number(pluginApi.pluginSettings.requestTimeoutMs) : 5000
   readonly property string primaryLyricsSource: pluginApi?.pluginSettings?.primaryLyricsSource || "lrclib"
   readonly property bool enableQQMusic: pluginApi?.pluginSettings?.enableQQMusic !== undefined ? pluginApi.pluginSettings.enableQQMusic : true
   readonly property string trackSummary: LyricsHelpers.formatTrack(currentTrack)
+  readonly property bool playbackIsPlaying: {
+    var player = currentPlaybackSource;
+    if (player && player.isPlaying !== undefined)
+      return !!player.isPlaying;
+    return !!MediaService.isPlaying;
+  }
 
   property string fetchState: "idle"
   property string errorText: ""
@@ -65,10 +79,21 @@ Item {
   property int fetchToken: 0
   property bool pendingForceRefresh: false
   property string currentLyricsSource: ""
+  property bool playheadReady: false
+  property int playheadBasePositionMs: 0
+  property double playheadCapturedAtMs: 0
+  property real playheadRate: 1.0
+  property bool playheadIsPlaying: false
+  property string playheadTrackKey: ""
+  property real directMprisPositionMs: NaN
+  property string directMprisTrackKey: ""
+  property string directMprisPollPlayerName: ""
+  property string directMprisPollTrackKey: ""
 
   readonly property bool hasSyncedLyrics: fetchState === "ready" && lyricsEntries.length > 0
   readonly property bool hasPlainLyrics: fetchState === "plain" && plainLyricsLines.length > 0
   readonly property bool isLoading: fetchState === "loading"
+  readonly property int directMprisPollIntervalMs: playbackIsPlaying ? 250 : 500
   readonly property string currentLineText: currentLineIndex >= 0 && currentLineIndex < lyricsEntries.length ? lyricsEntries[currentLineIndex].text : ""
   readonly property string previousLineText: currentLineIndex > 0 && currentLineIndex - 1 < lyricsEntries.length ? lyricsEntries[currentLineIndex - 1].text : ""
   readonly property string nextLineText: currentLineIndex + 1 >= 0 && currentLineIndex + 1 < lyricsEntries.length ? lyricsEntries[currentLineIndex + 1].text : ""
@@ -181,6 +206,7 @@ Item {
     plainLyricsLines = [];
     currentLineIndex = -1;
     currentLyricsSource = "";
+    resetPlayhead();
     lyricRevision++;
   }
 
@@ -213,6 +239,177 @@ Item {
     scheduleLyricsRefresh(forceRefresh === undefined ? true : forceRefresh);
   }
 
+  function nowMs() {
+    return Date.now();
+  }
+
+  function resetPlayhead() {
+    playheadReady = false;
+    playheadBasePositionMs = 0;
+    playheadCapturedAtMs = 0;
+    playheadRate = 1.0;
+    playheadIsPlaying = false;
+    playheadTrackKey = "";
+  }
+
+  function clearDirectMprisPosition() {
+    directMprisPositionMs = NaN;
+    directMprisTrackKey = currentTrackKey || "";
+  }
+
+  function readPositionMs(source) {
+    if (!source || source.position === undefined || source.position === null)
+      return NaN;
+
+    var seconds = Number(source.position);
+    if (!isFinite(seconds) || seconds < 0)
+      return NaN;
+
+    return Math.round(seconds * 1000);
+  }
+
+  function directObservedPositionMs() {
+    var positionMs = Number(directMprisPositionMs);
+    if (!isFinite(positionMs) || positionMs < 0)
+      return NaN;
+
+    if (directMprisTrackKey && currentTrackKey && directMprisTrackKey !== currentTrackKey)
+      return NaN;
+
+    return Math.round(positionMs);
+  }
+
+  function applyDirectMprisPosition(positionMs) {
+    if (!isFinite(positionMs) || positionMs < 0)
+      return;
+
+    directMprisPositionMs = Math.round(positionMs);
+    directMprisTrackKey = currentTrackKey || "";
+  }
+
+  function consumeDirectMprisPositionSample(playerName, trackKey, stdoutText) {
+    if (!playerName || playerName !== directMprisPlayerName)
+      return;
+
+    if (trackKey && currentTrackKey && trackKey !== currentTrackKey)
+      return;
+
+    var positionMs = LyricsHelpers.parsePlayerctlPositionMs(stdoutText);
+    if (!isFinite(positionMs))
+      return;
+
+    applyDirectMprisPosition(positionMs);
+    syncPlayheadBaseline(false, false);
+    updateCurrentLineIndex(false);
+  }
+
+  function pollDirectMprisPosition() {
+    if (!directMprisMonitorWanted || directMprisPositionProcess.running)
+      return;
+
+    directMprisPollPlayerName = directMprisPlayerName;
+    directMprisPollTrackKey = currentTrackKey || "";
+    directMprisPositionProcess.running = true;
+  }
+
+  function refreshDirectMprisMonitor(resetPosition) {
+    if (resetPosition)
+      clearDirectMprisPosition();
+
+    if (!directMprisMonitorWanted) {
+      directMprisPollPlayerName = "";
+      directMprisPollTrackKey = "";
+      return;
+    }
+
+    pollDirectMprisPosition();
+  }
+
+  function readObservedPositionMs(preferServicePosition) {
+    var serviceSeconds = Number(MediaService.currentPosition || 0);
+
+    return LyricsHelpers.chooseObservedPositionMs({
+                                                    "directPositionMs": directObservedPositionMs(),
+                                                    "playerPositionMs": readPositionMs(currentPlaybackSource),
+                                                    "servicePositionMs": isFinite(serviceSeconds) && serviceSeconds >= 0 ? Math.round(serviceSeconds * 1000) : NaN,
+                                                    "preferServicePosition": !!preferServicePosition
+                                                  });
+  }
+
+  function readObservedRate() {
+    var player = currentPlaybackSource;
+    if (player && player.rate !== undefined && player.rate !== null) {
+      var rate = Number(player.rate);
+      if (isFinite(rate) && rate > 0)
+        return rate;
+    }
+    return 1.0;
+  }
+
+  function setPlayheadBaseline(trackKey, positionMs, capturedAtMs, isPlaying, rate) {
+    playheadTrackKey = trackKey || "";
+    playheadBasePositionMs = Math.max(0, Math.round(Number(positionMs || 0)));
+    playheadCapturedAtMs = Number(capturedAtMs || 0);
+    playheadIsPlaying = !!isPlaying;
+    playheadRate = Number(rate) > 0 ? Number(rate) : 1.0;
+    playheadReady = !!playheadTrackKey;
+  }
+
+  function syncPlayheadBaseline(forceReset, preferServicePosition) {
+    var trackKey = currentTrackKey;
+    if (!trackKey) {
+      resetPlayhead();
+      return;
+    }
+
+    var capturedAtMs = nowMs();
+    var observedPositionMs = readObservedPositionMs(preferServicePosition);
+    var observedPlaying = playbackIsPlaying;
+    var observedRate = readObservedRate();
+
+    if (forceReset || !playheadReady || playheadTrackKey !== trackKey) {
+      setPlayheadBaseline(trackKey, observedPositionMs, capturedAtMs, observedPlaying, observedRate);
+      return;
+    }
+
+    var estimatedPositionMs = LyricsHelpers.estimatePlaybackPositionMs({
+                                                                   "positionMs": playheadBasePositionMs,
+                                                                   "capturedAtMs": playheadCapturedAtMs,
+                                                                   "isPlaying": playheadIsPlaying,
+                                                                   "rate": playheadRate
+                                                                 }, capturedAtMs);
+    var driftMs = observedPositionMs - estimatedPositionMs;
+    var stateChanged = observedPlaying !== playheadIsPlaying;
+    var rateChanged = Math.abs(observedRate - playheadRate) > 0.001;
+    var seeked = Math.abs(driftMs) > 450;
+
+    if (!observedPlaying && playheadIsPlaying && Math.abs(driftMs) <= 1200)
+      observedPositionMs = estimatedPositionMs;
+
+    if (stateChanged || rateChanged || seeked)
+      setPlayheadBaseline(trackKey, observedPositionMs, capturedAtMs, observedPlaying, observedRate);
+  }
+
+  function currentPlaybackPositionMs() {
+    var trackKey = currentTrackKey;
+    if (!trackKey)
+      return 0;
+
+    if (!playheadReady || playheadTrackKey !== trackKey)
+      syncPlayheadBaseline(true);
+
+    var estimatedPositionMs = LyricsHelpers.estimatePlaybackPositionMs({
+                                                                   "positionMs": playheadBasePositionMs,
+                                                                   "capturedAtMs": playheadCapturedAtMs,
+                                                                   "isPlaying": playheadIsPlaying,
+                                                                   "rate": playheadRate
+                                                                 }, nowMs());
+
+    if (trackDurationSeconds > 0)
+      return Math.min(estimatedPositionMs, trackDurationSeconds * 1000);
+    return estimatedPositionMs;
+  }
+
   function updateCurrentLineIndex(forceSignal) {
     if (!hasSyncedLyrics) {
       if (currentLineIndex !== -1 || forceSignal) {
@@ -222,7 +419,7 @@ Item {
       return;
     }
 
-    var positionMs = Math.max(0, Math.round(Number(MediaService.currentPosition || 0) * 1000) + lyricAdvanceMs);
+    var positionMs = Math.max(0, currentPlaybackPositionMs() + lyricAdvanceMs);
     var nextIndex = LyricsHelpers.findLineIndex(lyricsEntries, positionMs);
 
     if (nextIndex !== currentLineIndex || forceSignal) {
@@ -284,6 +481,22 @@ Item {
       running: false
       stdout: StdioCollector {}
       stderr: StdioCollector {}
+    }
+  }
+
+  Process {
+    id: directMprisPositionProcess
+    running: false
+    command: directMprisPollPlayerName !== "" ? ["playerctl", "-p", directMprisPollPlayerName, "position"] : []
+    stdout: StdioCollector {}
+    stderr: StdioCollector {}
+    onExited: exitCode => {
+      var sampledPlayerName = root.directMprisPollPlayerName;
+      var sampledTrackKey = root.directMprisPollTrackKey;
+      var stdoutText = directMprisPositionProcess.stdout ? String(directMprisPositionProcess.stdout.text || "") : "";
+
+      if (exitCode === 0)
+        root.consumeDirectMprisPositionSample(sampledPlayerName, sampledTrackKey, stdoutText);
     }
   }
 
@@ -680,30 +893,71 @@ Item {
     target: MediaService
 
     function onCurrentPlayerChanged() {
+      root.refreshDirectMprisMonitor(true);
+      root.syncPlayheadBaseline(true, false);
       root.scheduleLyricsRefresh(false);
+      root.updateCurrentLineIndex(true);
     }
 
     function onTrackTitleChanged() {
+      root.refreshDirectMprisMonitor(true);
+      root.syncPlayheadBaseline(true, false);
       root.scheduleLyricsRefresh(false);
     }
 
     function onTrackArtistChanged() {
+      root.refreshDirectMprisMonitor(true);
+      root.syncPlayheadBaseline(true, false);
       root.scheduleLyricsRefresh(false);
     }
 
     function onTrackAlbumChanged() {
+      root.refreshDirectMprisMonitor(true);
+      root.syncPlayheadBaseline(true, false);
       root.scheduleLyricsRefresh(false);
     }
 
     function onTrackLengthChanged() {
+      root.refreshDirectMprisMonitor(true);
+      root.syncPlayheadBaseline(true, false);
       root.scheduleLyricsRefresh(false);
     }
 
     function onCurrentPositionChanged() {
+      root.syncPlayheadBaseline(false, true);
       root.updateCurrentLineIndex(false);
     }
 
     function onIsPlayingChanged() {
+      root.pollDirectMprisPosition();
+      root.syncPlayheadBaseline(false, false);
+      root.updateCurrentLineIndex(false);
+    }
+  }
+
+  Connections {
+    target: root.currentPlaybackSource
+    ignoreUnknownSignals: true
+
+    function onPositionChanged() {
+      root.syncPlayheadBaseline(false, false);
+      root.updateCurrentLineIndex(false);
+    }
+
+    function onPlaybackStateChanged() {
+      root.pollDirectMprisPosition();
+      root.syncPlayheadBaseline(false, false);
+      root.updateCurrentLineIndex(false);
+    }
+
+    function onIsPlayingChanged() {
+      root.pollDirectMprisPosition();
+      root.syncPlayheadBaseline(false, false);
+      root.updateCurrentLineIndex(false);
+    }
+
+    function onRateChanged() {
+      root.syncPlayheadBaseline(false, false);
       root.updateCurrentLineIndex(false);
     }
   }
@@ -732,11 +986,25 @@ Item {
   Timer {
     interval: 140
     repeat: true
-    running: root.hasSyncedLyrics && MediaService.isPlaying
-    onTriggered: root.updateCurrentLineIndex(false)
+    running: root.hasSyncedLyrics
+    onTriggered: {
+      root.syncPlayheadBaseline(false, false);
+      root.updateCurrentLineIndex(false);
+    }
   }
 
+  Timer {
+    id: directMprisPollTimer
+    interval: root.directMprisPollIntervalMs
+    repeat: true
+    running: root.directMprisMonitorWanted
+    onTriggered: root.pollDirectMprisPosition()
+  }
+
+  onCurrentPlaybackSourceChanged: refreshDirectMprisMonitor(true)
+
   Component.onCompleted: {
+    refreshDirectMprisMonitor(true);
     scheduleLyricsRefresh(false);
   }
 }

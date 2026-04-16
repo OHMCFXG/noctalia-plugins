@@ -89,6 +89,19 @@ function parseTimestamp(token) {
   return (((hours * 60) + minutes) * 60 + seconds) * 1000 + millis;
 }
 
+function parseOffsetTag(token) {
+  var raw = stringValue(token);
+  var match = raw.match(/^\s*offset\s*:\s*(-?\d+)\s*$/i);
+  if (!match)
+    return null;
+
+  var offsetMs = parseInt(match[1], 10);
+  if (!isFinite(offsetMs))
+    return null;
+
+  return offsetMs;
+}
+
 function parseLrc(text) {
   var raw = stringValue(text);
   if (!raw.trim())
@@ -97,6 +110,7 @@ function parseLrc(text) {
   var result = [];
   var lines = raw.replace(/\r/g, "").split("\n");
   var tagPattern = /\[([^\]]+)\]/g;
+  var globalOffsetMs = 0;
 
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i];
@@ -105,9 +119,15 @@ function parseLrc(text) {
     tagPattern.lastIndex = 0;
 
     while ((match = tagPattern.exec(line)) !== null) {
+      var offsetMs = parseOffsetTag(match[1]);
+      if (offsetMs !== null) {
+        globalOffsetMs = offsetMs;
+        continue;
+      }
+
       var timestamp = parseTimestamp(match[1]);
       if (timestamp !== null)
-        matches.push(timestamp);
+        matches.push(Math.max(0, timestamp + globalOffsetMs));
     }
 
     if (matches.length === 0)
@@ -140,6 +160,69 @@ function parseLrc(text) {
   }
 
   return deduped;
+}
+
+function estimatePlaybackPositionMs(snapshot, nowMs) {
+  var basePositionMs = Number(snapshot && snapshot.positionMs);
+  if (!isFinite(basePositionMs) || basePositionMs < 0)
+    basePositionMs = 0;
+
+  if (!(snapshot && snapshot.isPlaying))
+    return Math.round(basePositionMs);
+
+  var capturedAtMs = Number(snapshot && snapshot.capturedAtMs);
+  var currentAtMs = Number(nowMs);
+  if (!isFinite(capturedAtMs) || !isFinite(currentAtMs))
+    return Math.round(basePositionMs);
+
+  var rate = Number(snapshot && snapshot.rate);
+  if (!isFinite(rate) || rate <= 0)
+    rate = 1.0;
+
+  var deltaMs = (currentAtMs - capturedAtMs) * rate;
+  if (!isFinite(deltaMs) || deltaMs <= 0)
+    return Math.round(basePositionMs);
+
+  return Math.max(0, Math.round(basePositionMs + deltaMs));
+}
+
+function chooseObservedPositionMs(options) {
+  var directPositionMs = Number(options && options.directPositionMs);
+  var playerPositionMs = Number(options && options.playerPositionMs);
+  var servicePositionMs = Number(options && options.servicePositionMs);
+  var preferServicePosition = !!(options && options.preferServicePosition);
+
+  if (isFinite(directPositionMs) && directPositionMs >= 0)
+    return Math.round(directPositionMs);
+
+  if (preferServicePosition && isFinite(servicePositionMs) && servicePositionMs >= 0)
+    return Math.round(servicePositionMs);
+
+  if (isFinite(playerPositionMs) && playerPositionMs >= 0)
+    return Math.round(playerPositionMs);
+
+  if (isFinite(servicePositionMs) && servicePositionMs >= 0)
+    return Math.round(servicePositionMs);
+
+  return 0;
+}
+
+function playerctlNameFromDbusName(dbusName) {
+  var raw = cleanText(dbusName);
+  if (!raw)
+    return "";
+
+  var prefix = "org.mpris.MediaPlayer2.";
+  if (raw.indexOf(prefix) === 0)
+    return raw.slice(prefix.length);
+  return raw;
+}
+
+function parsePlayerctlPositionMs(text) {
+  var seconds = Number(cleanText(text));
+  if (!isFinite(seconds) || seconds < 0)
+    return NaN;
+  return Math.round(seconds * 1000);
 }
 
 function parsePlainLyrics(text) {

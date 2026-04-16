@@ -18,7 +18,7 @@
   ],
   "metadata": {
     "defaultSettings": {
-      "lyricAdvanceMs": 120,
+      "lyricAdvanceMs": 300,
       "requestTimeoutMs": 5000,
       "barMaxWidth": 180,
       "barWidthMode": "adaptive",

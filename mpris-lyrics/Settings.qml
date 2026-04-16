@@ -10,7 +10,7 @@ ColumnLayout {
 
   property int preferredWidth: 720
   property var draftSettings: ({
-      "lyricAdvanceMs": pluginApi?.pluginSettings?.lyricAdvanceMs !== undefined ? Number(pluginApi.pluginSettings.lyricAdvanceMs) : 120,
+      "lyricAdvanceMs": pluginApi?.pluginSettings?.lyricAdvanceMs !== undefined ? Number(pluginApi.pluginSettings.lyricAdvanceMs) : 300,
       "requestTimeoutMs": pluginApi?.pluginSettings?.requestTimeoutMs !== undefined ? Number(pluginApi.pluginSettings.requestTimeoutMs) : 5000,
       "barMaxWidth": pluginApi?.pluginSettings?.barMaxWidth !== undefined ? Number(pluginApi.pluginSettings.barMaxWidth) : 180,
       "barWidthMode": pluginApi?.pluginSettings?.barWidthMode === "fixed" ? "fixed" : "adaptive",
