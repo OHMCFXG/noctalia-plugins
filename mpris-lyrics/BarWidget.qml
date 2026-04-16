@@ -102,8 +102,8 @@ Item {
         "enabled": service?.hasActiveTrack || false
       },
       {
-        "label": pluginApi?.tr("actions.settings") || "Open Settings",
-        "action": "settings",
+        "label": I18n.tr("actions.widget-settings"),
+        "action": "widget-settings",
         "icon": "settings"
       }
     ]
@@ -114,7 +114,7 @@ Item {
 
       if (action === "refresh")
         service?.refetchLyrics(true);
-      else if (action === "settings")
+      else if (action === "widget-settings")
         BarService.openPluginSettings(screen, pluginApi.manifest);
     }
   }
@@ -190,7 +190,7 @@ Item {
 
       onClicked: mouse => {
         if (mouse.button === Qt.RightButton) {
-          contextMenu.openAtItem(root, screen);
+          PanelService.showContextMenu(contextMenu, root, screen);
           return;
         }
 

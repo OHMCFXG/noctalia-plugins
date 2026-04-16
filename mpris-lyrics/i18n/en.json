@@ -1,7 +1,6 @@
 {
   "actions": {
-    "refresh": "Refresh Lyrics",
-    "settings": "Open Settings"
+    "refresh": "Refresh Lyrics"
   },
   "status": {
     "idle": "No active player",

@@ -1,7 +1,6 @@
 {
   "actions": {
-    "refresh": "重新获取歌词",
-    "settings": "打开设置"
+    "refresh": "重新获取歌词"
   },
   "status": {
     "idle": "没有活动播放器",
