@@ -126,8 +126,8 @@ Item {
     height: capsuleHeight
     radius: Style.radiusM
     color: Style.capsuleColor
-    border.width: 1
-    border.color: Qt.alpha(root.statusColor(), 0.24)
+    border.width: Style.capsuleBorderWidth
+    border.color: Style.capsuleBorderColor
     antialiasing: true
     transformOrigin: Item.Center
 
