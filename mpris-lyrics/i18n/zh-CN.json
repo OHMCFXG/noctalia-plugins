@@ -41,9 +41,7 @@
     "bar-dot-label": "显示状态点",
     "bar-dot-description": "在 Bar 小部件左侧显示动画状态指示点。",
     "primary-source-label": "首选歌词来源",
-    "primary-source-description": "搜索歌词时优先尝试的来源。",
-    "enable-qqmusic-label": "启用 QQ Music",
-    "enable-qqmusic-description": "启用 QQ Music 歌词源。"
+    "primary-source-description": "搜索歌词时优先尝试的来源。"
   },
   "desktop": {
     "width-label": "组件宽度",

@@ -9,38 +9,8 @@ ColumnLayout {
   required property var pluginApi
 
   property int preferredWidth: 720
-  property var draftSettings: ({
-      "lyricAdvanceMs": pluginApi?.pluginSettings?.lyricAdvanceMs !== undefined ? Number(pluginApi.pluginSettings.lyricAdvanceMs) : 300,
-      "requestTimeoutMs": pluginApi?.pluginSettings?.requestTimeoutMs !== undefined ? Number(pluginApi.pluginSettings.requestTimeoutMs) : 5000,
-      "barMaxWidth": pluginApi?.pluginSettings?.barMaxWidth !== undefined ? Number(pluginApi.pluginSettings.barMaxWidth) : 180,
-      "barWidthMode": pluginApi?.pluginSettings?.barWidthMode === "fixed" ? "fixed" : "adaptive",
-      "barHideWhenIdle": pluginApi?.pluginSettings?.barHideWhenIdle !== undefined ? !!pluginApi.pluginSettings.barHideWhenIdle : true,
-      "showBarStatusDot": pluginApi?.pluginSettings?.showBarStatusDot !== undefined ? !!pluginApi.pluginSettings.showBarStatusDot : true,
-      "primaryLyricsSource": pluginApi?.pluginSettings?.primaryLyricsSource || "lrclib",
-      "enableQQMusic": pluginApi?.pluginSettings?.enableQQMusic !== undefined ? !!pluginApi.pluginSettings.enableQQMusic : true,
-      "playerFilterMode": (function () {
-          var mode = pluginApi?.pluginSettings?.playerFilterMode;
-          return mode === "blacklist" || mode === "whitelist" ? mode : "off";
-        })(),
-      "playerFilterList": (function () {
-          var list = pluginApi?.pluginSettings?.playerFilterList;
-          if (!Array.isArray(list))
-            return [];
 
-          var normalized = [];
-          var seen = {};
-          for (var i = 0; i < list.length; i++) {
-            var rule = String(list[i] || "").trim();
-            var key = rule.toLowerCase();
-            if (!rule || seen[key])
-              continue;
-            seen[key] = true;
-            normalized.push(rule);
-          }
-
-          return normalized;
-        })()
-    })
+  readonly property var defaultSettings: pluginApi?.manifest?.metadata?.defaultSettings || ({})
 
   spacing: Style.marginL
 
@@ -53,27 +23,73 @@ ColumnLayout {
     return fallback;
   }
 
-  function cloneDraft() {
-    return {
-      "lyricAdvanceMs": draftSettings.lyricAdvanceMs,
-      "requestTimeoutMs": draftSettings.requestTimeoutMs,
-      "barMaxWidth": draftSettings.barMaxWidth,
-      "barWidthMode": draftSettings.barWidthMode,
-      "barHideWhenIdle": draftSettings.barHideWhenIdle,
-      "showBarStatusDot": draftSettings.showBarStatusDot,
-      "primaryLyricsSource": draftSettings.primaryLyricsSource,
-      "enableQQMusic": draftSettings.enableQQMusic,
-      "playerFilterMode": draftSettings.playerFilterMode,
-      "playerFilterList": (draftSettings.playerFilterList || []).slice()
-    };
+  function settingValue(key, fallback) {
+    var settings = pluginApi?.pluginSettings || {};
+    var defaults = defaultSettings || {};
+    if (settings[key] !== undefined)
+      return settings[key];
+    if (defaults[key] !== undefined)
+      return defaults[key];
+    return fallback;
   }
 
-  function replaceDraftSettings(patch) {
-    draftSettings = Object.assign({}, draftSettings, patch || {});
+  function readNumberSetting(key, fallback) {
+    return Number(settingValue(key, fallback));
+  }
+
+  function readBoolSetting(key, fallback) {
+    return !!settingValue(key, fallback);
+  }
+
+  function normalizePlayerFilterMode(value) {
+    return value === "blacklist" || value === "whitelist" ? value : "off";
+  }
+
+  function normalizeBarWidthMode(value) {
+    return value === "fixed" ? "fixed" : "adaptive";
+  }
+
+  function normalizePrimaryLyricsSource(value) {
+    return value === "qqmusic" ? "qqmusic" : "lrclib";
   }
 
   function normalizePlayerFilterRule(value) {
     return String(value || "").trim();
+  }
+
+  function normalizePlayerFilterList(value) {
+    if (!Array.isArray(value))
+      return [];
+
+    var normalized = [];
+    var seen = {};
+    for (var i = 0; i < value.length; i++) {
+      var rule = normalizePlayerFilterRule(value[i]);
+      var key = rule.toLowerCase();
+      if (!rule || seen[key])
+        continue;
+      seen[key] = true;
+      normalized.push(rule);
+    }
+    return normalized;
+  }
+
+  function clonePlayerFilterList() {
+    return (editPlayerFilterList || []).slice();
+  }
+
+  function buildSettings() {
+    return {
+      "lyricAdvanceMs": editLyricAdvanceMs,
+      "requestTimeoutMs": editRequestTimeoutMs,
+      "barMaxWidth": editBarMaxWidth,
+      "barWidthMode": editBarWidthMode,
+      "barHideWhenIdle": editBarHideWhenIdle,
+      "showBarStatusDot": editShowBarStatusDot,
+      "primaryLyricsSource": editPrimaryLyricsSource,
+      "playerFilterMode": editPlayerFilterMode,
+      "playerFilterList": clonePlayerFilterList()
+    };
   }
 
   function addPlayerFilterRule(value) {
@@ -81,34 +97,42 @@ ColumnLayout {
     if (!rule)
       return false;
 
-    var existing = draftSettings.playerFilterList || [];
+    var existing = editPlayerFilterList || [];
     for (var i = 0; i < existing.length; i++) {
       if (String(existing[i] || "").toLowerCase() === rule.toLowerCase())
         return false;
     }
 
-    replaceDraftSettings({
-                           "playerFilterList": existing.concat([rule])
-                         });
+    editPlayerFilterList = existing.concat([rule]);
     return true;
   }
 
   function removePlayerFilterRule(rule) {
-    var existing = draftSettings.playerFilterList || [];
+    var existing = editPlayerFilterList || [];
     var nextList = [];
     for (var i = 0; i < existing.length; i++) {
       if (existing[i] !== rule)
         nextList.push(existing[i]);
     }
-    replaceDraftSettings({
-                           "playerFilterList": nextList
-                         });
+    editPlayerFilterList = nextList;
   }
 
   function saveSettings() {
-    pluginApi.pluginSettings = cloneDraft();
+    var nextSettings = Object.assign({}, pluginApi?.pluginSettings || {}, buildSettings());
+    delete nextSettings.enableQQMusic;
+    pluginApi.pluginSettings = nextSettings;
     pluginApi.saveSettings();
   }
+
+  property int editLyricAdvanceMs: readNumberSetting("lyricAdvanceMs", 300)
+  property int editRequestTimeoutMs: readNumberSetting("requestTimeoutMs", 5000)
+  property int editBarMaxWidth: readNumberSetting("barMaxWidth", 180)
+  property string editBarWidthMode: normalizeBarWidthMode(settingValue("barWidthMode", "adaptive"))
+  property bool editBarHideWhenIdle: readBoolSetting("barHideWhenIdle", true)
+  property bool editShowBarStatusDot: readBoolSetting("showBarStatusDot", true)
+  property string editPrimaryLyricsSource: normalizePrimaryLyricsSource(settingValue("primaryLyricsSource", "lrclib"))
+  property string editPlayerFilterMode: normalizePlayerFilterMode(settingValue("playerFilterMode", "off"))
+  property var editPlayerFilterList: normalizePlayerFilterList(settingValue("playerFilterList", []))
 
   NText {
     Layout.fillWidth: true
@@ -142,10 +166,8 @@ ColumnLayout {
         "name": tr("settings.player-filter-mode-whitelist", "Whitelist")
       }
     ]
-    currentKey: draftSettings.playerFilterMode
-    onSelected: key => replaceDraftSettings({
-                                              "playerFilterMode": key
-                                            })
+    currentKey: editPlayerFilterMode
+    onSelected: key => root.editPlayerFilterMode = key
     defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.playerFilterMode
   }
 
@@ -172,7 +194,7 @@ ColumnLayout {
       spacing: Style.marginS
 
       Repeater {
-        model: draftSettings.playerFilterList || []
+        model: editPlayerFilterList || []
 
         delegate: Rectangle {
           required property string modelData
@@ -234,8 +256,8 @@ ColumnLayout {
         "name": "QQ Music"
       }
     ]
-    currentKey: draftSettings.primaryLyricsSource === "qqmusic" ? "qqmusic" : "lrclib"
-    onSelected: key => draftSettings.primaryLyricsSource = key
+    currentKey: editPrimaryLyricsSource
+    onSelected: key => root.editPrimaryLyricsSource = key
     defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.primaryLyricsSource
   }
 
@@ -247,8 +269,8 @@ ColumnLayout {
     to: 12000
     stepSize: 250
     suffix: " ms"
-    value: draftSettings.requestTimeoutMs
-    onValueChanged: draftSettings.requestTimeoutMs = value
+    value: editRequestTimeoutMs
+    onValueChanged: root.editRequestTimeoutMs = value
     defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.requestTimeoutMs
   }
 
@@ -260,18 +282,9 @@ ColumnLayout {
     to: 1500
     stepSize: 20
     suffix: " ms"
-    value: draftSettings.lyricAdvanceMs
-    onValueChanged: draftSettings.lyricAdvanceMs = value
+    value: editLyricAdvanceMs
+    onValueChanged: root.editLyricAdvanceMs = value
     defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.lyricAdvanceMs
-  }
-
-  NToggle {
-    Layout.fillWidth: true
-    label: tr("settings.enable-qqmusic-label", "Enable QQ Music")
-    description: tr("settings.enable-qqmusic-description", "Enable QQ Music lyrics source.")
-    checked: draftSettings.enableQQMusic
-    onToggled: checked => draftSettings.enableQQMusic = checked
-    defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.enableQQMusic
   }
 
   NText {
@@ -296,10 +309,8 @@ ColumnLayout {
         "name": tr("settings.bar-width-mode-fixed", "Fixed")
       }
     ]
-    currentKey: draftSettings.barWidthMode
-    onSelected: key => replaceDraftSettings({
-                                              "barWidthMode": key
-                                            })
+    currentKey: editBarWidthMode
+    onSelected: key => root.editBarWidthMode = key
     defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.barWidthMode
   }
 
@@ -311,8 +322,8 @@ ColumnLayout {
     to: 640
     stepSize: 10
     suffix: " px"
-    value: draftSettings.barMaxWidth
-    onValueChanged: draftSettings.barMaxWidth = value
+    value: editBarMaxWidth
+    onValueChanged: root.editBarMaxWidth = value
     defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.barMaxWidth
   }
 
@@ -320,8 +331,8 @@ ColumnLayout {
     Layout.fillWidth: true
     label: tr("settings.bar-hide-label", "Hide Bar When Idle")
     description: tr("settings.bar-hide-description", "Collapse the bar widget when there is no active track.")
-    checked: draftSettings.barHideWhenIdle
-    onToggled: checked => draftSettings.barHideWhenIdle = checked
+    checked: editBarHideWhenIdle
+    onToggled: checked => root.editBarHideWhenIdle = checked
     defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.barHideWhenIdle
   }
 
@@ -329,8 +340,8 @@ ColumnLayout {
     Layout.fillWidth: true
     label: tr("settings.bar-dot-label", "Show Status Dot")
     description: tr("settings.bar-dot-description", "Display the animated state indicator at the start of the bar widget.")
-    checked: draftSettings.showBarStatusDot
-    onToggled: checked => draftSettings.showBarStatusDot = checked
+    checked: editShowBarStatusDot
+    onToggled: checked => root.editShowBarStatusDot = checked
     defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.showBarStatusDot
   }
 }

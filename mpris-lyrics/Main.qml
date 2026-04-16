@@ -60,7 +60,6 @@ Item {
   readonly property int lyricAdvanceMs: pluginApi?.pluginSettings?.lyricAdvanceMs !== undefined ? Number(pluginApi.pluginSettings.lyricAdvanceMs) : 300
   readonly property int requestTimeoutMs: pluginApi?.pluginSettings?.requestTimeoutMs !== undefined ? Number(pluginApi.pluginSettings.requestTimeoutMs) : 5000
   readonly property string primaryLyricsSource: pluginApi?.pluginSettings?.primaryLyricsSource || "lrclib"
-  readonly property bool enableQQMusic: pluginApi?.pluginSettings?.enableQQMusic !== undefined ? pluginApi.pluginSettings.enableQQMusic : true
   readonly property string trackSummary: LyricsHelpers.formatTrack(currentTrack)
   readonly property bool playbackIsPlaying: {
     var player = currentPlaybackSource;
@@ -728,33 +727,22 @@ Item {
           return;
         }
 
-        if (enableQQMusic) {
-          fetchQQMusicLyrics(cacheKey, token, function (result) {
-            if (token !== fetchToken || cacheKey !== currentTrackKey)
-              return;
-            if (result) {
-              result.source = "qqmusic";
-              applyResult(result, cacheKey);
-            } else {
-              applyResult({
-                            "state": "empty",
-                            "entries": [],
-                            "plainLines": [],
-                            "error": "",
-                            "source": ""
-                          }, cacheKey);
-            }
-          });
-          return;
-        }
-
-        applyResult({
-                      "state": "empty",
-                      "entries": [],
-                      "plainLines": [],
-                      "error": "",
-                      "source": ""
-                    }, cacheKey);
+        fetchQQMusicLyrics(cacheKey, token, function (result) {
+          if (token !== fetchToken || cacheKey !== currentTrackKey)
+            return;
+          if (result) {
+            result.source = "qqmusic";
+            applyResult(result, cacheKey);
+          } else {
+            applyResult({
+                          "state": "empty",
+                          "entries": [],
+                          "plainLines": [],
+                          "error": "",
+                          "source": ""
+                        }, cacheKey);
+          }
+        });
         return;
       }
 
@@ -765,33 +753,22 @@ Item {
         return;
       }
 
-      if (enableQQMusic) {
-        fetchQQMusicLyrics(cacheKey, token, function (result) {
-          if (token !== fetchToken || cacheKey !== currentTrackKey)
-            return;
-          if (result) {
-            result.source = "qqmusic";
-            applyResult(result, cacheKey);
-          } else {
-            applyResult({
-                          "state": (status === 404) ? "empty" : "error",
-                          "entries": [],
-                          "plainLines": [],
-                          "error": error,
-                          "source": ""
-                        }, cacheKey);
-          }
-        });
-        return;
-      }
-
-      applyResult({
-                    "state": (status === 404) ? "empty" : "error",
-                    "entries": [],
-                    "plainLines": [],
-                    "error": error,
-                    "source": ""
-                  }, cacheKey);
+      fetchQQMusicLyrics(cacheKey, token, function (result) {
+        if (token !== fetchToken || cacheKey !== currentTrackKey)
+          return;
+        if (result) {
+          result.source = "qqmusic";
+          applyResult(result, cacheKey);
+        } else {
+          applyResult({
+                        "state": (status === 404) ? "empty" : "error",
+                        "entries": [],
+                        "plainLines": [],
+                        "error": error,
+                        "source": ""
+                      }, cacheKey);
+        }
+      });
     });
   }
 
@@ -822,7 +799,7 @@ Item {
 
     var token = fetchToken;
 
-    if (primaryLyricsSource === "qqmusic" && enableQQMusic) {
+    if (primaryLyricsSource === "qqmusic") {
       fetchQQMusicLyrics(cacheKey, token, function (result) {
         if (token !== fetchToken || cacheKey !== currentTrackKey)
           return;

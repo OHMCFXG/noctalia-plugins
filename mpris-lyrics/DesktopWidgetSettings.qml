@@ -12,18 +12,6 @@ ColumnLayout {
   signal settingsChanged(var settings)
 
   readonly property var widgetMeta: widgetSettings?.metadata || pluginApi?.manifest?.metadata || {}
-  property var draft: ({
-      "width": widgetSettings?.data?.width !== undefined ? Number(widgetSettings.data.width) : Number(widgetMeta.width || 520),
-      "contextLines": widgetSettings?.data?.contextLines !== undefined ? Number(widgetSettings.data.contextLines) : Number(widgetMeta.contextLines || 1),
-      "fontSize": widgetSettings?.data?.fontSize !== undefined ? Number(widgetSettings.data.fontSize) : Number(widgetMeta.fontSize || 22),
-      "showTrackMeta": widgetSettings?.data?.showTrackMeta !== undefined ? !!widgetSettings.data.showTrackMeta : !!widgetMeta.showTrackMeta,
-      "hideWhenIdle": widgetSettings?.data?.hideWhenIdle !== undefined ? !!widgetSettings.data.hideWhenIdle : !!widgetMeta.hideWhenIdle,
-      "showBackground": widgetSettings?.data?.showBackground !== undefined ? !!widgetSettings.data.showBackground : !!widgetMeta.showBackground,
-      "roundedCorners": widgetSettings?.data?.roundedCorners !== undefined ? !!widgetSettings.data.roundedCorners : !!widgetMeta.roundedCorners,
-      "textAlign": widgetSettings?.data?.textAlign !== undefined ? String(widgetSettings.data.textAlign) : String(widgetMeta.textAlign || "center"),
-      "inactiveOpacity": widgetSettings?.data?.inactiveOpacity !== undefined ? Math.round(Number(widgetSettings.data.inactiveOpacity) * 100) : Math.round(Number(widgetMeta.inactiveOpacity || 0.56) * 100),
-      "lineSpacing": widgetSettings?.data?.lineSpacing !== undefined ? Number(widgetSettings.data.lineSpacing) : Number(widgetMeta.lineSpacing || 8)
-    })
 
   spacing: Style.marginM
 
@@ -36,18 +24,40 @@ ColumnLayout {
     return fallback;
   }
 
+  function settingValue(key, fallback) {
+    var data = widgetSettings?.data || {};
+    var defaults = widgetMeta || {};
+    if (data[key] !== undefined)
+      return data[key];
+    if (defaults[key] !== undefined)
+      return defaults[key];
+    return fallback;
+  }
+
+  function readNumberSetting(key, fallback) {
+    return Number(settingValue(key, fallback));
+  }
+
+  function readBoolSetting(key, fallback) {
+    return !!settingValue(key, fallback);
+  }
+
+  function normalizeTextAlign(value) {
+    return value === "left" ? "left" : "center";
+  }
+
   function buildSettings() {
     var settings = Object.assign({}, widgetSettings?.data || {});
-    settings.width = draft.width;
-    settings.contextLines = draft.contextLines;
-    settings.fontSize = draft.fontSize;
-    settings.showTrackMeta = draft.showTrackMeta;
-    settings.hideWhenIdle = draft.hideWhenIdle;
-    settings.showBackground = draft.showBackground;
-    settings.roundedCorners = draft.roundedCorners;
-    settings.textAlign = draft.textAlign;
-    settings.inactiveOpacity = Math.max(0.1, Math.min(0.95, draft.inactiveOpacity / 100));
-    settings.lineSpacing = draft.lineSpacing;
+    settings.width = editWidth;
+    settings.contextLines = editContextLines;
+    settings.fontSize = editFontSize;
+    settings.showTrackMeta = editShowTrackMeta;
+    settings.hideWhenIdle = editHideWhenIdle;
+    settings.showBackground = editShowBackground;
+    settings.roundedCorners = editRoundedCorners;
+    settings.textAlign = editTextAlign;
+    settings.inactiveOpacity = Math.max(0.1, Math.min(0.95, editInactiveOpacityPercent / 100));
+    settings.lineSpacing = editLineSpacing;
     return settings;
   }
 
@@ -57,6 +67,17 @@ ColumnLayout {
     return settings;
   }
 
+  property int editWidth: readNumberSetting("width", 520)
+  property int editContextLines: readNumberSetting("contextLines", 1)
+  property int editFontSize: readNumberSetting("fontSize", 22)
+  property int editLineSpacing: readNumberSetting("lineSpacing", 8)
+  property int editInactiveOpacityPercent: Math.round(readNumberSetting("inactiveOpacity", 0.56) * 100)
+  property string editTextAlign: normalizeTextAlign(settingValue("textAlign", "center"))
+  property bool editShowTrackMeta: readBoolSetting("showTrackMeta", true)
+  property bool editHideWhenIdle: readBoolSetting("hideWhenIdle", false)
+  property bool editShowBackground: readBoolSetting("showBackground", true)
+  property bool editRoundedCorners: readBoolSetting("roundedCorners", true)
+
   NSpinBox {
     Layout.fillWidth: true
     label: tr("desktop.width-label", "Widget Width")
@@ -65,9 +86,9 @@ ColumnLayout {
     to: 960
     stepSize: 10
     suffix: " px"
-    value: draft.width
+    value: editWidth
     onValueChanged: {
-      draft.width = value;
+      root.editWidth = value;
       saveSettings();
     }
     defaultValue: widgetMeta.width
@@ -80,9 +101,9 @@ ColumnLayout {
     from: 0
     to: 3
     stepSize: 1
-    value: draft.contextLines
+    value: editContextLines
     onValueChanged: {
-      draft.contextLines = value;
+      root.editContextLines = value;
       saveSettings();
     }
     defaultValue: widgetMeta.contextLines
@@ -96,9 +117,9 @@ ColumnLayout {
     to: 40
     stepSize: 1
     suffix: " pt"
-    value: draft.fontSize
+    value: editFontSize
     onValueChanged: {
-      draft.fontSize = value;
+      root.editFontSize = value;
       saveSettings();
     }
     defaultValue: widgetMeta.fontSize
@@ -112,9 +133,9 @@ ColumnLayout {
     to: 20
     stepSize: 1
     suffix: " px"
-    value: draft.lineSpacing
+    value: editLineSpacing
     onValueChanged: {
-      draft.lineSpacing = value;
+      root.editLineSpacing = value;
       saveSettings();
     }
     defaultValue: widgetMeta.lineSpacing
@@ -128,9 +149,9 @@ ColumnLayout {
     to: 95
     stepSize: 1
     suffix: "%"
-    value: draft.inactiveOpacity
+    value: editInactiveOpacityPercent
     onValueChanged: {
-      draft.inactiveOpacity = value;
+      root.editInactiveOpacityPercent = value;
       saveSettings();
     }
     defaultValue: Math.round(Number(widgetMeta.inactiveOpacity || 0.56) * 100)
@@ -150,9 +171,9 @@ ColumnLayout {
         "name": tr("desktop.align-left", "Left")
       }
     ]
-    currentKey: draft.textAlign
+    currentKey: editTextAlign
     onSelected: key => {
-      draft.textAlign = key;
+      root.editTextAlign = key;
       saveSettings();
     }
     defaultValue: widgetMeta.textAlign
@@ -162,9 +183,9 @@ ColumnLayout {
     Layout.fillWidth: true
     label: tr("desktop.meta-label", "Show Track Meta")
     description: tr("desktop.meta-description", "Display song title and artist above the lyric block.")
-    checked: draft.showTrackMeta
+    checked: editShowTrackMeta
     onToggled: checked => {
-      draft.showTrackMeta = checked;
+      root.editShowTrackMeta = checked;
       saveSettings();
     }
     defaultValue: widgetMeta.showTrackMeta
@@ -174,9 +195,9 @@ ColumnLayout {
     Layout.fillWidth: true
     label: tr("desktop.hide-label", "Hide When Idle")
     description: tr("desktop.hide-description", "Hide the desktop widget when no playable track is active.")
-    checked: draft.hideWhenIdle
+    checked: editHideWhenIdle
     onToggled: checked => {
-      draft.hideWhenIdle = checked;
+      root.editHideWhenIdle = checked;
       saveSettings();
     }
     defaultValue: widgetMeta.hideWhenIdle
@@ -186,9 +207,9 @@ ColumnLayout {
     Layout.fillWidth: true
     label: tr("desktop.background-label", "Show Background")
     description: tr("desktop.background-description", "Use Noctalia's desktop widget surface behind the lyrics.")
-    checked: draft.showBackground
+    checked: editShowBackground
     onToggled: checked => {
-      draft.showBackground = checked;
+      root.editShowBackground = checked;
       saveSettings();
     }
     defaultValue: widgetMeta.showBackground
@@ -198,9 +219,9 @@ ColumnLayout {
     Layout.fillWidth: true
     label: tr("desktop.corners-label", "Rounded Corners")
     description: tr("desktop.corners-description", "Apply rounded clipping to the desktop widget container.")
-    checked: draft.roundedCorners
+    checked: editRoundedCorners
     onToggled: checked => {
-      draft.roundedCorners = checked;
+      root.editRoundedCorners = checked;
       saveSettings();
     }
     defaultValue: widgetMeta.roundedCorners

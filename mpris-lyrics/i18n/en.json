@@ -41,9 +41,7 @@
     "bar-dot-label": "Show Status Dot",
     "bar-dot-description": "Display the animated state indicator at the start of the bar widget.",
     "primary-source-label": "Primary Lyrics Source",
-    "primary-source-description": "The lyrics source to try first when searching for lyrics.",
-    "enable-qqmusic-label": "Enable QQ Music",
-    "enable-qqmusic-description": "Enable QQ Music lyrics source."
+    "primary-source-description": "The lyrics source to try first when searching for lyrics."
   },
   "desktop": {
     "width-label": "Widget Width",
