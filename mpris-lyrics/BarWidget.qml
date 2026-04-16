@@ -92,36 +92,6 @@ Item {
     }
   }
 
-  SequentialAnimation {
-    id: lyricPulse
-    running: false
-
-    NumberAnimation {
-      target: capsule
-      property: "scale"
-      to: 0.985
-      duration: 90
-      easing.type: Easing.OutCubic
-    }
-
-    NumberAnimation {
-      target: capsule
-      property: "scale"
-      to: 1
-      duration: 180
-      easing.type: Easing.OutCubic
-    }
-  }
-
-  Connections {
-    target: service
-    enabled: service !== null
-
-    function onLyricRevisionChanged() {
-      lyricPulse.restart();
-    }
-  }
-
   NPopupContextMenu {
     id: contextMenu
     model: [
