@@ -30,9 +30,12 @@ Item {
   readonly property bool shouldHide: hideWhenIdle && !(service?.hasActiveTrack || false)
   readonly property string displayText: service?.barText || ""
   readonly property real dotSize: Math.max(6, Math.round(capsuleHeight * 0.16))
+  readonly property real textPointSize: Math.max(Style.fontSizeXS, capsuleHeight * 0.24)
   readonly property real textLimit: Math.max(140, maxWidth - Style.marginL * 3 - (showStatusDot ? dotSize + Style.marginS : 0))
+  readonly property real textContentWidth: Math.max(0, textMeasure.contentWidth)
+  readonly property bool textOverflow: textContentWidth > textLimit + 1
   readonly property real contentWidth: {
-    var total = scrollText.measuredWidth + Style.marginL * 2;
+    var total = textContentWidth + Style.marginL * 2;
     if (showStatusDot)
       total += dotSize + Style.marginS;
     return Math.min(maxWidth, Math.max(total, showStatusDot ? 72 : 56));
@@ -90,6 +93,15 @@ Item {
       duration: Style.animationNormal
       easing.type: Easing.InOutCubic
     }
+  }
+
+  NText {
+    id: textMeasure
+    visible: false
+    text: displayText
+    pointSize: textPointSize
+    elide: Text.ElideNone
+    wrapMode: Text.NoWrap
   }
 
   NPopupContextMenu {
@@ -164,25 +176,72 @@ Item {
         }
       }
 
-      NScrollText {
-        id: scrollText
+      Item {
         Layout.fillWidth: true
         Layout.alignment: Qt.AlignVCenter
-        text: displayText
-        maxWidth: textLimit
-        scrollMode: NScrollText.ScrollMode.Hover
-        fadeExtent: 0.08
-        fadeCornerRadius: Style.radiusM
-        fadeRoundLeftCorners: showStatusDot
+        Layout.preferredHeight: capsuleHeight
 
-        NText {
-          pointSize: Math.max(Style.fontSizeXS, capsuleHeight * 0.24)
-          color: root.textColor()
+        Item {
+          anchors.fill: parent
+          visible: !root.textOverflow || !mouseArea.containsMouse
+          clip: true
+
+          NText {
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            text: displayText
+            pointSize: textPointSize
+            color: root.textColor()
+            elide: Text.ElideNone
+          }
+
+          Rectangle {
+            visible: root.textOverflow
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            width: Math.max(18, parent.width * 0.14)
+            color: "transparent"
+            topRightRadius: Style.radiusM
+            bottomRightRadius: Style.radiusM
+            gradient: Gradient {
+              orientation: Gradient.Horizontal
+
+              GradientStop {
+                position: 0.0
+                color: Qt.rgba(capsule.color.r, capsule.color.g, capsule.color.b, 0)
+              }
+
+              GradientStop {
+                position: 1.0
+                color: capsule.color
+              }
+            }
+          }
+        }
+
+        NScrollText {
+          anchors.fill: parent
+          visible: root.textOverflow && mouseArea.containsMouse
+          text: displayText
+          maxWidth: textLimit
+          scrollMode: NScrollText.ScrollMode.Hover
+          forcedHover: mouseArea.containsMouse
+          fadeExtent: 0.08
+          fadeCornerRadius: Style.radiusM
+          fadeRoundLeftCorners: showStatusDot
+
+          NText {
+            pointSize: textPointSize
+            color: root.textColor()
+          }
         }
       }
+
     }
 
     MouseArea {
+      id: mouseArea
       anchors.fill: parent
       acceptedButtons: Qt.LeftButton | Qt.RightButton
       hoverEnabled: true
