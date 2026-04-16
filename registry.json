@@ -4,7 +4,7 @@
     {
       "id": "mpris-lyrics",
       "name": "MPRIS Lyrics",
-      "version": "1.4.4",
+      "version": "1.4.5",
       "official": false,
       "author": "hcx",
       "description": "Synced lyrics for Noctalia bar and desktop widgets.",
@@ -13,7 +13,7 @@
         "Desktop",
         "Music"
       ],
-      "lastUpdated": "2026-04-17T00:00:56+08:00"
+      "lastUpdated": "2026-04-17T00:21:44+08:00"
     }
   ]
 }
