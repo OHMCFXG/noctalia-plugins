@@ -25,7 +25,7 @@ Synchronized lyrics plugin for Noctalia bar and desktop widgets.
 - Request timeout
 - Bar max width
 - Adaptive or fixed bar width mode
-- Hide bar widget when idle
+- Hide the bar widget when no track is active
 - Show bar status dot
 - Player filter mode: `off`, `blacklist`, `whitelist`
 - Player filter rules using case-insensitive substring matching

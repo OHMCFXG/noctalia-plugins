@@ -1,7 +1,7 @@
 {
   "id": "mpris-lyrics",
   "name": "MPRIS Lyrics",
-  "version": "1.4.6",
+  "version": "1.4.7",
   "author": "hcx",
   "description": "Synced lyrics for Noctalia bar and desktop widgets.",
   "entryPoints": {

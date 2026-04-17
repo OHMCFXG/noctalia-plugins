@@ -329,8 +329,8 @@ ColumnLayout {
 
   NToggle {
     Layout.fillWidth: true
-    label: tr("settings.bar-hide-label", "Hide Bar When Idle")
-    description: tr("settings.bar-hide-description", "Collapse the bar widget when there is no active track.")
+    label: tr("settings.bar-hide-label", "Hide Bar Widget When No Track Is Active")
+    description: tr("settings.bar-hide-description", "Hide the lyrics widget in the bar when no track is active.")
     checked: editBarHideWhenIdle
     onToggled: checked => root.editBarHideWhenIdle = checked
     defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.barHideWhenIdle
