@@ -270,6 +270,109 @@ function parsePlainLyrics(text) {
   return result;
 }
 
+function lyricsTextValue(value) {
+  if (Array.isArray(value)) {
+    var parts = [];
+    for (var i = 0; i < value.length; i++) {
+      var line = stringValue(value[i]);
+      if (line)
+        parts.push(line);
+    }
+    return parts.join("\n");
+  }
+
+  return stringValue(value);
+}
+
+function isLikelyLyricsKey(key) {
+  var raw = stringValue(key);
+  if (!raw)
+    return false;
+
+  var normalized = raw.toLowerCase();
+  if (normalized === "xesam:astext")
+    return true;
+
+  return normalized.indexOf("lyric") >= 0 || normalized.indexOf("lrc") >= 0;
+}
+
+function addLyricsCandidate(candidates, seen, container, key) {
+  if (!container || key === undefined || key === null)
+    return;
+
+  var value = lyricsTextValue(container[key]);
+  var trimmed = value.trim();
+  if (!trimmed || seen[trimmed])
+    return;
+
+  seen[trimmed] = true;
+  candidates.push(trimmed);
+}
+
+function extractPlayerSyncedLyrics(source) {
+  if (!source)
+    return [];
+
+  var candidates = [];
+  var seen = {};
+  var directKeys = [
+    "syncedLyrics",
+    "synced_lyrics",
+    "lyrics",
+    "lyric",
+    "lrc",
+    "lrcLyrics",
+    "lrc_lyrics",
+    "lyricText",
+    "lyricsText",
+    "lrcText",
+    "kde:lyrics",
+    "mpris:lyrics",
+    "xesam:lyrics",
+    "xesam:lyric",
+    "xesam:lrc",
+    "xesam:asText"
+  ];
+  var metadataKeys = [
+    "metadata",
+    "metaData",
+    "trackMetadata",
+    "mprisMetadata"
+  ];
+
+  for (var i = 0; i < directKeys.length; i++)
+    addLyricsCandidate(candidates, seen, source, directKeys[i]);
+
+  var metadataContainers = [];
+  for (var j = 0; j < metadataKeys.length; j++) {
+    var container = source[metadataKeys[j]];
+    if (container !== undefined && container !== null)
+      metadataContainers.push(container);
+  }
+
+  for (var k = 0; k < metadataContainers.length; k++) {
+    var metadata = metadataContainers[k];
+
+    for (var m = 0; m < directKeys.length; m++)
+      addLyricsCandidate(candidates, seen, metadata, directKeys[m]);
+
+    for (var key in metadata) {
+      if (!metadata.hasOwnProperty || metadata.hasOwnProperty(key)) {
+        if (isLikelyLyricsKey(key))
+          addLyricsCandidate(candidates, seen, metadata, key);
+      }
+    }
+  }
+
+  for (var n = 0; n < candidates.length; n++) {
+    var parsed = parseLrc(candidates[n]);
+    if (parsed.length > 0)
+      return parsed;
+  }
+
+  return [];
+}
+
 function findLineIndex(entries, positionMs) {
   if (!entries || entries.length === 0)
     return -1;

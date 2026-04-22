@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell.Io
+import qs.Commons
 import qs.Services.Media
 import "lib/LyricsHelpers.js" as LyricsHelpers
 import "lib/QQMusicCurl.js" as QQMusicCurl
@@ -60,6 +61,7 @@ Item {
   readonly property int lyricAdvanceMs: pluginApi?.pluginSettings?.lyricAdvanceMs !== undefined ? Number(pluginApi.pluginSettings.lyricAdvanceMs) : 300
   readonly property int requestTimeoutMs: pluginApi?.pluginSettings?.requestTimeoutMs !== undefined ? Number(pluginApi.pluginSettings.requestTimeoutMs) : 5000
   readonly property string primaryLyricsSource: pluginApi?.pluginSettings?.primaryLyricsSource || "lrclib"
+  readonly property bool preferPlayerLyrics: pluginApi?.pluginSettings?.preferPlayerLyrics !== undefined ? !!pluginApi.pluginSettings.preferPlayerLyrics : true
   readonly property string trackSummary: LyricsHelpers.formatTrack(currentTrack)
   readonly property bool playbackIsPlaying: {
     var player = currentPlaybackSource;
@@ -89,6 +91,8 @@ Item {
   property string directMprisTrackKey: ""
   property string directMprisPollPlayerName: ""
   property string directMprisPollTrackKey: ""
+  property string loggedLyricsTrackKey: ""
+  property string loggedLyricsSource: ""
 
   readonly property bool hasSyncedLyrics: fetchState === "ready" && lyricsEntries.length > 0
   readonly property bool hasPlainLyrics: fetchState === "plain" && plainLyricsLines.length > 0
@@ -138,7 +142,7 @@ Item {
                     "state": stateLabel
                   }));
     if (currentLyricsSource) {
-      var sourceName = currentLyricsSource === "qqmusic" ? "QQ Music" : "LRCLib";
+      var sourceName = sourceDisplayName(currentLyricsSource);
       parts.push(tr("status.source-prefix", "Source: {source}", {
                       "source": sourceName
                     }));
@@ -200,6 +204,19 @@ Item {
     return true;
   }
 
+  function sourceDisplayName(sourceKey) {
+    switch (sourceKey) {
+    case "player":
+      return tr("status.source-player", "Player");
+    case "qqmusic":
+      return tr("status.source-qqmusic", "QQ Music");
+    case "lrclib":
+      return tr("status.source-lrclib", "LRCLib");
+    default:
+      return LyricsHelpers.cleanText(sourceKey);
+    }
+  }
+
   function resetState(newState) {
     fetchState = newState;
     errorText = "";
@@ -207,6 +224,8 @@ Item {
     plainLyricsLines = [];
     currentLineIndex = -1;
     currentLyricsSource = "";
+    loggedLyricsTrackKey = "";
+    loggedLyricsSource = "";
     resetPlayhead();
     lyricRevision++;
   }
@@ -227,8 +246,23 @@ Item {
     lyricsEntries = (safeResult.entries || []).slice();
     plainLyricsLines = (safeResult.plainLines || []).slice();
     currentLyricsSource = (fetchState === "ready" || fetchState === "plain") ? (safeResult.source || "") : "";
+    logLyricsSource(cacheKey, currentLyricsSource);
 
     updateCurrentLineIndex(true);
+  }
+
+  function logLyricsSource(trackKey, sourceKey) {
+    var safeTrackKey = LyricsHelpers.cleanText(trackKey);
+    var safeSourceKey = LyricsHelpers.cleanText(sourceKey);
+    if (!safeTrackKey || !safeSourceKey)
+      return;
+
+    if (loggedLyricsTrackKey === safeTrackKey && loggedLyricsSource === safeSourceKey)
+      return;
+
+    Logger.i("MPRISLyrics", "[Title] " + LyricsHelpers.cleanText(trackTitle) + " [Source] " + sourceDisplayName(safeSourceKey));
+    loggedLyricsTrackKey = safeTrackKey;
+    loggedLyricsSource = safeSourceKey;
   }
 
   function scheduleLyricsRefresh(forceRefresh) {
@@ -532,6 +566,39 @@ Item {
     return null;
   }
 
+  function currentPlayerLyricsResult() {
+    if (!preferPlayerLyrics)
+      return null;
+
+    var candidates = [];
+    if (currentPlaybackSource)
+      candidates.push(currentPlaybackSource);
+    if (MediaService.currentPlayer && MediaService.currentPlayer !== currentPlaybackSource)
+      candidates.push(MediaService.currentPlayer);
+
+    for (var i = 0; i < candidates.length; i++) {
+      var entries = LyricsHelpers.extractPlayerSyncedLyrics(candidates[i]);
+      if (entries.length > 0) {
+        return {
+          "state": "ready",
+          "entries": entries,
+          "plainLines": [],
+          "error": "",
+          "source": "player"
+        };
+      }
+    }
+
+    return null;
+  }
+
+  function canUseCachedResult(cachedResult) {
+    if (!cachedResult)
+      return false;
+
+    return preferPlayerLyrics || cachedResult.source !== "player";
+  }
+
   function runQQMusicCurl(command, cacheKey, token, parseResponse, callback) {
     var process = qqMusicCurlProcessComponent.createObject(root, {
       "command": command
@@ -793,20 +860,27 @@ Item {
       return;
     }
 
-    if (!forceRefresh && lyricsCache[cacheKey]) {
-      applyResult(lyricsCache[cacheKey], cacheKey);
+    fetchToken++;
+    var token = fetchToken;
+    var playerResult = currentPlayerLyricsResult();
+    var cachedResult = lyricsCache[cacheKey];
+
+    if (playerResult) {
+      applyResult(playerResult, cacheKey);
       return;
     }
 
-    fetchToken++;
+    if (!forceRefresh && canUseCachedResult(cachedResult)) {
+      applyResult(cachedResult, cacheKey);
+      return;
+    }
+
     fetchState = "loading";
     errorText = "";
     lyricsEntries = [];
     plainLyricsLines = [];
     currentLineIndex = -1;
     lyricRevision++;
-
-    var token = fetchToken;
 
     if (primaryLyricsSource === "qqmusic") {
       fetchQQMusicLyrics(cacheKey, token, function (result) {
@@ -945,6 +1019,10 @@ Item {
     function onRateChanged() {
       root.syncPlayheadBaseline(false, false);
       root.updateCurrentLineIndex(false);
+    }
+
+    function onMetadataChanged() {
+      root.scheduleLyricsRefresh(false);
     }
   }
 

@@ -11,7 +11,10 @@
     "empty": "No lyrics found",
     "error": "Lyrics unavailable",
     "state-prefix": "State: {state}",
-    "source-prefix": "Source: {source}"
+    "source-prefix": "Source: {source}",
+    "source-player": "Player",
+    "source-qqmusic": "QQ Music",
+    "source-lrclib": "LRCLib"
   },
   "settings": {
     "overview": "Displays synced lyrics in the bar and desktop widget, following the active media player.",
@@ -41,7 +44,9 @@
     "bar-dot-label": "Show Status Dot",
     "bar-dot-description": "Display the animated state indicator at the start of the bar widget.",
     "primary-source-label": "Primary Lyrics Source",
-    "primary-source-description": "The lyrics source to try first when searching for lyrics."
+    "primary-source-description": "The lyrics source to try first when searching for lyrics.",
+    "prefer-player-lyrics-label": "Prefer Player Lyrics",
+    "prefer-player-lyrics-description": "When the current player exposes time-coded LRC lyrics over MPRIS, use them before any network source."
   },
   "desktop": {
     "width-label": "Widget Width",

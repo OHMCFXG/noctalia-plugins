@@ -82,6 +82,7 @@ ColumnLayout {
     return {
       "lyricAdvanceMs": editLyricAdvanceMs,
       "requestTimeoutMs": editRequestTimeoutMs,
+      "preferPlayerLyrics": editPreferPlayerLyrics,
       "barMaxWidth": editBarMaxWidth,
       "barWidthMode": editBarWidthMode,
       "barHideWhenIdle": editBarHideWhenIdle,
@@ -131,6 +132,7 @@ ColumnLayout {
   property bool editBarHideWhenIdle: readBoolSetting("barHideWhenIdle", true)
   property bool editShowBarStatusDot: readBoolSetting("showBarStatusDot", true)
   property string editPrimaryLyricsSource: normalizePrimaryLyricsSource(settingValue("primaryLyricsSource", "lrclib"))
+  property bool editPreferPlayerLyrics: readBoolSetting("preferPlayerLyrics", true)
   property string editPlayerFilterMode: normalizePlayerFilterMode(settingValue("playerFilterMode", "off"))
   property var editPlayerFilterList: normalizePlayerFilterList(settingValue("playerFilterList", []))
 
@@ -259,6 +261,15 @@ ColumnLayout {
     currentKey: editPrimaryLyricsSource
     onSelected: key => root.editPrimaryLyricsSource = key
     defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.primaryLyricsSource
+  }
+
+  NToggle {
+    Layout.fillWidth: true
+    label: tr("settings.prefer-player-lyrics-label", "Prefer Player Lyrics")
+    description: tr("settings.prefer-player-lyrics-description", "When the current player exposes time-coded LRC lyrics over MPRIS, use them before any network source.")
+    checked: editPreferPlayerLyrics
+    onToggled: checked => root.editPreferPlayerLyrics = checked
+    defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.preferPlayerLyrics
   }
 
   NSpinBox {

@@ -11,7 +11,10 @@
     "empty": "没有找到歌词",
     "error": "歌词暂时不可用",
     "state-prefix": "状态：{state}",
-    "source-prefix": "来源：{source}"
+    "source-prefix": "来源：{source}",
+    "source-player": "播放器",
+    "source-qqmusic": "QQ Music",
+    "source-lrclib": "LRCLib"
   },
   "settings": {
     "overview": "跟随当前媒体播放器，在 Bar 和桌面组件中显示同步歌词。",
@@ -41,7 +44,9 @@
     "bar-dot-label": "显示状态点",
     "bar-dot-description": "在 Bar 小部件左侧显示动画状态指示点。",
     "primary-source-label": "首选歌词来源",
-    "primary-source-description": "搜索歌词时优先尝试的来源。"
+    "primary-source-description": "搜索歌词时优先尝试的来源。",
+    "prefer-player-lyrics-label": "优先使用播放器歌词",
+    "prefer-player-lyrics-description": "当当前播放器通过 MPRIS 提供带时间轴的 LRC 歌词时，优先使用它，而不是网络来源。"
   },
   "desktop": {
     "width-label": "组件宽度",
