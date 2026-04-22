@@ -85,6 +85,7 @@ Item {
   property bool playheadIsPlaying: false
   property string playheadTrackKey: ""
   property real directMprisPositionMs: NaN
+  property double directMprisCapturedAtMs: NaN
   property string directMprisTrackKey: ""
   property string directMprisPollPlayerName: ""
   property string directMprisPollTrackKey: ""
@@ -93,6 +94,7 @@ Item {
   readonly property bool hasPlainLyrics: fetchState === "plain" && plainLyricsLines.length > 0
   readonly property bool isLoading: fetchState === "loading"
   readonly property int directMprisPollIntervalMs: playbackIsPlaying ? 250 : 500
+  readonly property int directMprisFreshnessMs: Math.max(1000, directMprisPollIntervalMs * 4)
   readonly property string currentLineText: currentLineIndex >= 0 && currentLineIndex < lyricsEntries.length ? lyricsEntries[currentLineIndex].text : ""
   readonly property string previousLineText: currentLineIndex > 0 && currentLineIndex - 1 < lyricsEntries.length ? lyricsEntries[currentLineIndex - 1].text : ""
   readonly property string nextLineText: currentLineIndex + 1 >= 0 && currentLineIndex + 1 < lyricsEntries.length ? lyricsEntries[currentLineIndex + 1].text : ""
@@ -253,6 +255,7 @@ Item {
 
   function clearDirectMprisPosition() {
     directMprisPositionMs = NaN;
+    directMprisCapturedAtMs = NaN;
     directMprisTrackKey = currentTrackKey || "";
   }
 
@@ -278,11 +281,12 @@ Item {
     return Math.round(positionMs);
   }
 
-  function applyDirectMprisPosition(positionMs) {
+  function applyDirectMprisPosition(positionMs, capturedAtMs) {
     if (!isFinite(positionMs) || positionMs < 0)
       return;
 
     directMprisPositionMs = Math.round(positionMs);
+    directMprisCapturedAtMs = isFinite(capturedAtMs) ? Number(capturedAtMs) : nowMs();
     directMprisTrackKey = currentTrackKey || "";
   }
 
@@ -297,7 +301,7 @@ Item {
     if (!isFinite(positionMs))
       return;
 
-    applyDirectMprisPosition(positionMs);
+    applyDirectMprisPosition(positionMs, nowMs());
     syncPlayheadBaseline(false, false);
     updateCurrentLineIndex(false);
   }
@@ -324,14 +328,19 @@ Item {
     pollDirectMprisPosition();
   }
 
-  function readObservedPositionMs(preferServicePosition) {
+  function readObservedPositionMs(preferServicePosition, observedAtMs, observedRate) {
     var serviceSeconds = Number(MediaService.currentPosition || 0);
 
     return LyricsHelpers.chooseObservedPositionMs({
                                                     "directPositionMs": directObservedPositionMs(),
+                                                    "directCapturedAtMs": directMprisCapturedAtMs,
                                                     "playerPositionMs": readPositionMs(currentPlaybackSource),
                                                     "servicePositionMs": isFinite(serviceSeconds) && serviceSeconds >= 0 ? Math.round(serviceSeconds * 1000) : NaN,
-                                                    "preferServicePosition": !!preferServicePosition
+                                                    "preferServicePosition": !!preferServicePosition,
+                                                    "nowMs": isFinite(observedAtMs) ? observedAtMs : nowMs(),
+                                                    "isPlaying": playbackIsPlaying,
+                                                    "rate": isFinite(observedRate) && observedRate > 0 ? observedRate : readObservedRate(),
+                                                    "directMaxAgeMs": directMprisFreshnessMs
                                                   });
   }
 
@@ -362,9 +371,9 @@ Item {
     }
 
     var capturedAtMs = nowMs();
-    var observedPositionMs = readObservedPositionMs(preferServicePosition);
     var observedPlaying = playbackIsPlaying;
     var observedRate = readObservedRate();
+    var observedPositionMs = readObservedPositionMs(preferServicePosition, capturedAtMs, observedRate);
 
     if (forceReset || !playheadReady || playheadTrackKey !== trackKey) {
       setPlayheadBaseline(trackKey, observedPositionMs, capturedAtMs, observedPlaying, observedRate);

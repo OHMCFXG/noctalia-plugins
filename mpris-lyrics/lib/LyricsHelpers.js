@@ -188,12 +188,39 @@ function estimatePlaybackPositionMs(snapshot, nowMs) {
 
 function chooseObservedPositionMs(options) {
   var directPositionMs = Number(options && options.directPositionMs);
+  var directCapturedAtMs = Number(options && options.directCapturedAtMs);
   var playerPositionMs = Number(options && options.playerPositionMs);
   var servicePositionMs = Number(options && options.servicePositionMs);
   var preferServicePosition = !!(options && options.preferServicePosition);
+  var nowMs = Number(options && options.nowMs);
+  var isPlaying = !!(options && options.isPlaying);
+  var rate = Number(options && options.rate);
+  var directMaxAgeMs = Number(options && options.directMaxAgeMs);
 
-  if (isFinite(directPositionMs) && directPositionMs >= 0)
-    return Math.round(directPositionMs);
+  if (!isFinite(rate) || rate <= 0)
+    rate = 1.0;
+
+  if (!isFinite(directMaxAgeMs) || directMaxAgeMs < 0)
+    directMaxAgeMs = 1250;
+
+  if (isFinite(directPositionMs) && directPositionMs >= 0) {
+    if (isPlaying && isFinite(directCapturedAtMs) && directCapturedAtMs >= 0 && isFinite(nowMs)) {
+      var sampleAgeMs = nowMs - directCapturedAtMs;
+      if (isFinite(sampleAgeMs) && sampleAgeMs >= 0 && sampleAgeMs <= directMaxAgeMs) {
+        return estimatePlaybackPositionMs({
+                                            "positionMs": directPositionMs,
+                                            "capturedAtMs": directCapturedAtMs,
+                                            "isPlaying": true,
+                                            "rate": rate
+                                          }, nowMs);
+      }
+
+      if (!isFinite(sampleAgeMs) || sampleAgeMs <= directMaxAgeMs)
+        return Math.round(directPositionMs);
+    } else {
+      return Math.round(directPositionMs);
+    }
+  }
 
   if (preferServicePosition && isFinite(servicePositionMs) && servicePositionMs >= 0)
     return Math.round(servicePositionMs);
