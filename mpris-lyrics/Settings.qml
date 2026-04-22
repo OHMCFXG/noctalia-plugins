@@ -266,7 +266,7 @@ ColumnLayout {
   NToggle {
     Layout.fillWidth: true
     label: tr("settings.prefer-player-lyrics-label", "Prefer Player Lyrics")
-    description: tr("settings.prefer-player-lyrics-description", "When the current player exposes time-coded LRC lyrics over MPRIS, use them before any network source.")
+    description: tr("settings.prefer-player-lyrics-description", "Prefer lyrics provided by the player instead of network sources.")
     checked: editPreferPlayerLyrics
     onToggled: checked => root.editPreferPlayerLyrics = checked
     defaultValue: pluginApi?.manifest?.metadata?.defaultSettings?.preferPlayerLyrics
@@ -340,7 +340,7 @@ ColumnLayout {
 
   NToggle {
     Layout.fillWidth: true
-    label: tr("settings.bar-hide-label", "Hide Bar Widget When No Track Is Active")
+    label: tr("settings.bar-hide-label", "Hide When No Track Is Active")
     description: tr("settings.bar-hide-description", "Hide the lyrics widget in the bar when no track is active.")
     checked: editBarHideWhenIdle
     onToggled: checked => root.editBarHideWhenIdle = checked

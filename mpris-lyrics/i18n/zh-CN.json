@@ -39,14 +39,14 @@
     "bar-width-mode-description": "选择让 Bar 宽度跟随当前歌词变化，或保持固定。",
     "bar-width-mode-adaptive": "自适应",
     "bar-width-mode-fixed": "固定",
-    "bar-hide-label": "无活动曲目时隐藏 Bar 小部件",
+    "bar-hide-label": "无活动曲目时隐藏",
     "bar-hide-description": "没有活动曲目时隐藏 Bar 上的歌词小部件。",
     "bar-dot-label": "显示状态点",
     "bar-dot-description": "在 Bar 小部件左侧显示动画状态指示点。",
     "primary-source-label": "首选歌词来源",
     "primary-source-description": "搜索歌词时优先尝试的来源。",
     "prefer-player-lyrics-label": "优先使用播放器歌词",
-    "prefer-player-lyrics-description": "当当前播放器通过 MPRIS 提供带时间轴的 LRC 歌词时，优先使用它，而不是网络来源。"
+    "prefer-player-lyrics-description": "优先使用播放器提供的歌词，而不是网络来源。"
   },
   "desktop": {
     "width-label": "组件宽度",

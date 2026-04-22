@@ -39,14 +39,14 @@
     "bar-width-mode-description": "Choose whether the bar width follows the current lyric or stays fixed.",
     "bar-width-mode-adaptive": "Adaptive",
     "bar-width-mode-fixed": "Fixed",
-    "bar-hide-label": "Hide Bar Widget When No Track Is Active",
+    "bar-hide-label": "Hide When No Track Is Active",
     "bar-hide-description": "Hide the lyrics widget in the bar when no track is active.",
     "bar-dot-label": "Show Status Dot",
     "bar-dot-description": "Display the animated state indicator at the start of the bar widget.",
     "primary-source-label": "Primary Lyrics Source",
     "primary-source-description": "The lyrics source to try first when searching for lyrics.",
     "prefer-player-lyrics-label": "Prefer Player Lyrics",
-    "prefer-player-lyrics-description": "When the current player exposes time-coded LRC lyrics over MPRIS, use them before any network source."
+    "prefer-player-lyrics-description": "Prefer lyrics provided by the player instead of network sources."
   },
   "desktop": {
     "width-label": "Widget Width",

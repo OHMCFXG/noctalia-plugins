@@ -1,7 +1,7 @@
 {
   "id": "mpris-lyrics",
   "name": "MPRIS Lyrics",
-  "version": "1.4.9",
+  "version": "1.4.10",
   "author": "hcx",
   "description": "Synced lyrics for Noctalia bar and desktop widgets.",
   "entryPoints": {
@@ -26,8 +26,11 @@
       "barHideWhenIdle": true,
       "showBarStatusDot": true,
       "primaryLyricsSource": "lrclib",
-      "playerFilterMode": "off",
-      "playerFilterList": []
+      "playerFilterMode": "blacklist",
+      "playerFilterList": [
+        "firefox",
+        "chrome"
+      ]
     },
     "showBackground": true,
     "roundedCorners": true,
