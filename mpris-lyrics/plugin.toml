@@ -3,14 +3,15 @@
 # over noctalia.state. Track metadata and position come from Noctalia's own
 # D-Bus control plane (dev.noctalia.Mpris), not a reimplemented MPRIS client.
 #
-# Settings scopes (Noctalia UI):
-# - [[setting]] plugin-level  → Settings → Plugins → gear on this plugin
-# - [[widget.setting]]        → middle-click the bar widget
-# Manifest changes require disable/enable (or shell reload); .luau hot-reloads only.
+# Settings scopes:
+# - [[setting]]        plugin-level → Settings → Plugins gear
+#                      (shared: player filter, sources, timing — service reads these)
+# - [[widget.setting]] instance-level → middle-click the bar widget
+#                      (presentation only — width, secondary line look)
 
 id           = "0x1ce/mpris-lyrics"
 name         = "MPRIS Lyrics"
-version      = "1.1.1"
+version      = "1.2.0"
 plugin_api   = 3
 author       = "0x1ce"
 license      = "MIT"
@@ -19,7 +20,7 @@ description  = "Synced lyrics on the bar from NetEase, QQ Music, or LRCLib."
 tags         = ["bar", "service", "media", "music"]
 dependencies = ["busctl", "openssl"]
 
-# ── Plugin-level (Plugins gear + seeded into every entry) ────────────────────
+# ── Plugin-level: data / fetch / timing (shared by service + all instances) ──
 
 [[setting]]
 key = "playerFilterMode"
@@ -67,6 +68,7 @@ description_key = "settings.timeout.description"
 default = 5000
 min = 1000
 max = 12000
+advanced = true
 
 [[setting]]
 key = "lyricAdvanceMs"
@@ -87,7 +89,8 @@ entry = "service.luau"
 id = "bar"
 entry = "widget.luau"
 
-  # Middle-click bar widget settings (not shown on Plugins gear).
+  # ── Instance presentation (per bar placement) ────────────────────────────
+
   [[widget.setting]]
   key = "barMaxWidth"
   type = "int"
@@ -109,6 +112,18 @@ entry = "widget.luau"
   ]
 
   [[widget.setting]]
+  key = "textAlign"
+  type = "select"
+  label_key = "settings.text_align.label"
+  description_key = "settings.text_align.description"
+  default = "center"
+  options = [
+    { value = "left", label_key = "settings.text_align.options.left" },
+    { value = "center", label_key = "settings.text_align.options.center" },
+    { value = "right", label_key = "settings.text_align.options.right" },
+  ]
+
+  [[widget.setting]]
   key = "barHideWhenIdle"
   type = "bool"
   label_key = "settings.bar_hide.label"
@@ -121,3 +136,84 @@ entry = "widget.luau"
   label_key = "settings.bar_dot.label"
   description_key = "settings.bar_dot.description"
   default = true
+
+  [[widget.setting]]
+  key = "paddingLeft"
+  type = "int"
+  label_key = "settings.padding_left.label"
+  description_key = "settings.padding_left.description"
+  default = 6
+  min = 0
+  max = 32
+
+  [[widget.setting]]
+  key = "paddingRight"
+  type = "int"
+  label_key = "settings.padding_right.label"
+  description_key = "settings.padding_right.description"
+  default = 6
+  min = 0
+  max = 32
+
+  [[widget.setting]]
+  key = "showSecondaryLine"
+  type = "bool"
+  label_key = "settings.show_secondary_line.label"
+  description_key = "settings.show_secondary_line.description"
+  default = false
+
+  [[widget.setting]]
+  key = "secondaryLineContent"
+  type = "select"
+  label_key = "settings.secondary_line_content.label"
+  description_key = "settings.secondary_line_content.description"
+  default = "translation"
+  visible_when = { key = "showSecondaryLine", values = ["true"] }
+  options = [
+    { value = "translation", label_key = "settings.secondary_line_content.options.translation" },
+    { value = "romanization", label_key = "settings.secondary_line_content.options.romanization" },
+  ]
+
+  [[widget.setting]]
+  key = "secondaryPrimaryFontSize"
+  type = "int"
+  label_key = "settings.secondary_primary_font_size.label"
+  description_key = "settings.secondary_primary_font_size.description"
+  default = 12
+  min = 8
+  max = 20
+  advanced = true
+  visible_when = { key = "showSecondaryLine", values = ["true"] }
+
+  [[widget.setting]]
+  key = "secondaryFontSize"
+  type = "int"
+  label_key = "settings.secondary_font_size.label"
+  description_key = "settings.secondary_font_size.description"
+  default = 10
+  min = 7
+  max = 16
+  advanced = true
+  visible_when = { key = "showSecondaryLine", values = ["true"] }
+
+  [[widget.setting]]
+  key = "secondaryLineGap"
+  type = "int"
+  label_key = "settings.secondary_line_gap.label"
+  description_key = "settings.secondary_line_gap.description"
+  default = -4
+  min = -12
+  max = 8
+  advanced = true
+  visible_when = { key = "showSecondaryLine", values = ["true"] }
+
+  [[widget.setting]]
+  key = "secondaryOpacity"
+  type = "int"
+  label_key = "settings.secondary_opacity.label"
+  description_key = "settings.secondary_opacity.description"
+  default = 70
+  min = 30
+  max = 100
+  advanced = true
+  visible_when = { key = "showSecondaryLine", values = ["true"] }

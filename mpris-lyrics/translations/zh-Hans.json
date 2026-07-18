@@ -56,6 +56,18 @@
       "label": "歌词提前量",
       "description": "正数让歌词更早出现，负数更晚（毫秒）。"
     },
+    "show_secondary_line": {
+      "label": "显示第二行",
+      "description": "开启后在主歌词下方显示更小、更淡的第二行（有数据时）。"
+    },
+    "secondary_line_content": {
+      "label": "第二行显示",
+      "description": "第二行内容（网易/QQ 有对应数据时才显示）。",
+      "options": {
+        "translation": "翻译",
+        "romanization": "罗马音"
+      }
+    },
     "bar_width": {
       "label": "Bar 最大宽度",
       "description": "自适应模式下是最大宽度，固定模式下是锁定宽度（像素）。"
@@ -75,6 +87,39 @@
     "bar_dot": {
       "label": "显示状态点",
       "description": "在歌词文字前显示彩色状态指示点。"
+    },
+    "secondary_primary_font_size": {
+      "label": "主行字号（双行时）",
+      "description": "开启第二行时，主歌词的字号。"
+    },
+    "secondary_font_size": {
+      "label": "第二行字号",
+      "description": "第二行文字的字号。"
+    },
+    "secondary_line_gap": {
+      "label": "行间距",
+      "description": "两行之间的垂直间距。负数会拉近两行。"
+    },
+    "secondary_opacity": {
+      "label": "第二行不透明度",
+      "description": "第二行透明度百分比（30–100）。"
+    },
+    "padding_left": {
+      "label": "左边距",
+      "description": "胶囊左边缘与内容之间的间距（像素）。"
+    },
+    "padding_right": {
+      "label": "右边距",
+      "description": "内容与胶囊右边缘之间的间距（像素）。"
+    },
+    "text_align": {
+      "label": "文本对齐",
+      "description": "歌词水平对齐方式（固定宽度且文字被截断时更明显）。",
+      "options": {
+        "left": "左对齐",
+        "center": "居中",
+        "right": "右对齐"
+      }
     }
   }
 }

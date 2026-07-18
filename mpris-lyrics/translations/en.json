@@ -56,6 +56,18 @@
       "label": "Lyric Advance",
       "description": "Positive values show lyrics earlier; negative values later (ms)."
     },
+    "show_secondary_line": {
+      "label": "Show Secondary Line",
+      "description": "Show a smaller, dimmer second line under the main lyric when available."
+    },
+    "secondary_line_content": {
+      "label": "Secondary Line Content",
+      "description": "What to show on the second line (NetEase/QQ when the track provides it).",
+      "options": {
+        "translation": "Translation",
+        "romanization": "Romanization"
+      }
+    },
     "bar_width": {
       "label": "Bar Max Width",
       "description": "Maximum (adaptive) or locked (fixed) width in pixels."
@@ -75,6 +87,39 @@
     "bar_dot": {
       "label": "Show Status Dot",
       "description": "Show a colored state indicator before the lyric text."
+    },
+    "secondary_primary_font_size": {
+      "label": "Primary Font Size (Two-line)",
+      "description": "Main lyric size when the secondary line is shown."
+    },
+    "secondary_font_size": {
+      "label": "Secondary Font Size",
+      "description": "Second-line font size."
+    },
+    "secondary_line_gap": {
+      "label": "Line Gap",
+      "description": "Vertical gap between the two lines. Negative pulls them closer."
+    },
+    "secondary_opacity": {
+      "label": "Secondary Opacity",
+      "description": "Second-line opacity percent (30–100)."
+    },
+    "padding_left": {
+      "label": "Left Padding",
+      "description": "Space between the capsule edge and content on the left (px)."
+    },
+    "padding_right": {
+      "label": "Right Padding",
+      "description": "Space between the content and the capsule edge on the right (px)."
+    },
+    "text_align": {
+      "label": "Text Align",
+      "description": "Horizontal alignment of the lyric lines (most noticeable with fixed width and ellipsis).",
+      "options": {
+        "left": "Left",
+        "center": "Center",
+        "right": "Right"
+      }
     }
   }
 }
