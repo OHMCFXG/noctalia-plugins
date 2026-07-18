@@ -205,8 +205,8 @@ local function render()
     widthMode = "adaptive"
   end
   local textAlign = normalizeTextAlign(cfgString("textAlign", "center"))
-  local paddingLeft = cfgNumber("paddingLeft", 6, 0, 32)
-  local paddingRight = cfgNumber("paddingRight", 6, 0, 32)
+  local paddingLeft = cfgNumber("paddingLeft", 3, 0, 32)
+  local paddingRight = cfgNumber("paddingRight", 3, 0, 32)
 
   if shouldHide(hideWhenIdle) then
     if lastRenderKey ~= "hidden" then

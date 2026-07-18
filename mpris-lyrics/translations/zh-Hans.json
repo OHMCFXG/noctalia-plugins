@@ -36,8 +36,8 @@
       "description": "大小写不敏感的子串规则，匹配播放器 identity 与 desktop entry。"
     },
     "primary_source": {
-      "label": "首选歌词来源",
-      "description": "搜索歌词时优先尝试的来源。",
+      "label": "首选在线歌词源",
+      "description": "在线搜索时优先尝试的来源，其余作为后备。",
       "options": {
         "netease": "网易云音乐",
         "qqmusic": "QQ 音乐",
@@ -45,76 +45,76 @@
       }
     },
     "prefer_player_lyrics": {
-      "label": "优先使用播放器歌词",
-      "description": "若播放器通过 MPRIS 提供歌词，则优先于网络来源。"
+      "label": "优先使用播放器自带歌词",
+      "description": "若播放器通过 MPRIS 提供歌词（如 xesam:asText），则优先于网易/QQ/LRCLib。"
     },
     "timeout": {
-      "label": "请求超时",
-      "description": "歌词请求超过这个毫秒数就会终止。"
+      "label": "网络超时",
+      "description": "歌词请求超过该毫秒数则中止（相关加密步骤也参考此值）。"
     },
     "advance": {
-      "label": "歌词提前量",
-      "description": "正数让歌词更早出现，负数更晚（毫秒）。"
+      "label": "歌词时间偏移",
+      "description": "毫秒。正数让歌词更早出现，负数更晚。一般保持 0 即可。"
     },
     "show_secondary_line": {
-      "label": "显示第二行",
-      "description": "开启后在主歌词下方显示更小、更淡的第二行（有数据时）。"
+      "label": "显示翻译 / 罗马音",
+      "description": "在主歌词下方显示更小、更淡的一行：翻译或罗马音（网易/QQ 有数据时）。"
     },
     "secondary_line_content": {
-      "label": "第二行显示",
-      "description": "第二行内容（网易/QQ 有对应数据时才显示）。",
+      "label": "附加行内容",
+      "description": "主歌词下方那一行显示什么。",
       "options": {
-        "translation": "翻译",
-        "romanization": "罗马音"
+        "translation": "中文翻译",
+        "romanization": "罗马音 / 读音"
       }
     },
     "bar_width": {
-      "label": "Bar 最大宽度",
-      "description": "自适应模式下是最大宽度，固定模式下是锁定宽度（像素）。"
+      "label": "最大宽度",
+      "description": "自适应模式下的上限，或固定模式下的锁定宽度（像素）。"
     },
     "bar_width_mode": {
-      "label": "Bar 宽度模式",
-      "description": "让宽度跟随当前歌词，或保持固定。",
+      "label": "宽度模式",
+      "description": "自适应随歌词长短变化；固定保持恒定宽度。",
       "options": {
         "adaptive": "自适应",
         "fixed": "固定"
       }
     },
     "bar_hide": {
-      "label": "无活动曲目时隐藏",
-      "description": "没有活动曲目时隐藏 Bar 上的歌词小部件。"
+      "label": "空闲时隐藏",
+      "description": "没有活动曲目时隐藏本小部件。"
     },
     "bar_dot": {
-      "label": "显示状态点",
-      "description": "在歌词文字前显示彩色状态指示点。"
+      "label": "状态点",
+      "description": "歌词前的彩色圆点，表示加载/就绪/错误等状态。"
     },
     "secondary_primary_font_size": {
-      "label": "主行字号（双行时）",
-      "description": "开启第二行时，主歌词的字号。"
+      "label": "主歌词字号（开启附加行时）",
+      "description": "显示附加行时，主歌词的字号。"
     },
     "secondary_font_size": {
-      "label": "第二行字号",
-      "description": "第二行文字的字号。"
+      "label": "附加行字号",
+      "description": "翻译/罗马音那一行的字号。"
     },
     "secondary_line_gap": {
-      "label": "行间距",
-      "description": "两行之间的垂直间距。负数会拉近两行。"
+      "label": "主行与附加行间距",
+      "description": "两行之间的垂直间距。负数会拉近（短 bar 可减轻裁切）。"
     },
     "secondary_opacity": {
-      "label": "第二行不透明度",
-      "description": "第二行透明度百分比（30–100）。"
+      "label": "附加行不透明度",
+      "description": "附加行的深浅（30 很淡，100 最深）。"
     },
     "padding_left": {
       "label": "左边距",
-      "description": "胶囊左边缘与内容之间的间距（像素）。"
+      "description": "胶囊内左侧留白（像素）。"
     },
     "padding_right": {
       "label": "右边距",
-      "description": "内容与胶囊右边缘之间的间距（像素）。"
+      "description": "胶囊内右侧留白（像素）。"
     },
     "text_align": {
       "label": "文本对齐",
-      "description": "歌词水平对齐方式（固定宽度且文字被截断时更明显）。",
+      "description": "歌词水平对齐。固定宽度且文字被省略时，左对齐通常更自然。",
       "options": {
         "left": "左对齐",
         "center": "居中",

@@ -142,7 +142,7 @@ entry = "widget.luau"
   type = "int"
   label_key = "settings.padding_left.label"
   description_key = "settings.padding_left.description"
-  default = 6
+  default = 3
   min = 0
   max = 32
 
@@ -151,7 +151,7 @@ entry = "widget.luau"
   type = "int"
   label_key = "settings.padding_right.label"
   description_key = "settings.padding_right.description"
-  default = 6
+  default = 3
   min = 0
   max = 32
 

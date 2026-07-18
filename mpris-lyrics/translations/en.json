@@ -36,8 +36,8 @@
       "description": "Case-insensitive substring rules matched against player identity and desktop entry."
     },
     "primary_source": {
-      "label": "Primary Lyrics Source",
-      "description": "Tried first when searching for lyrics.",
+      "label": "Preferred Online Source",
+      "description": "Tried first when fetching lyrics online. Others are used as fallback.",
       "options": {
         "netease": "NetEase Music",
         "qqmusic": "QQ Music",
@@ -45,76 +45,76 @@
       }
     },
     "prefer_player_lyrics": {
-      "label": "Prefer Player Lyrics",
-      "description": "Use lyrics embedded in the player (MPRIS) before network sources, when available."
+      "label": "Prefer Player-Embedded Lyrics",
+      "description": "If the player exposes lyrics over MPRIS (e.g. xesam:asText), use them before NetEase/QQ/LRCLib."
     },
     "timeout": {
-      "label": "Request Timeout",
-      "description": "Abort a lyrics request after this many milliseconds."
+      "label": "Network Timeout",
+      "description": "Abort a lyrics request after this many milliseconds (also used for related encrypt steps)."
     },
     "advance": {
-      "label": "Lyric Advance",
-      "description": "Positive values show lyrics earlier; negative values later (ms)."
+      "label": "Lyric Timing Offset",
+      "description": "Milliseconds to shift lyrics earlier (positive) or later (negative). Usually leave at 0."
     },
     "show_secondary_line": {
-      "label": "Show Secondary Line",
-      "description": "Show a smaller, dimmer second line under the main lyric when available."
+      "label": "Show Translation / Romanization",
+      "description": "Under the main lyric, show a smaller dimmer line for translation or romanization when the source provides it (NetEase/QQ)."
     },
     "secondary_line_content": {
-      "label": "Secondary Line Content",
-      "description": "What to show on the second line (NetEase/QQ when the track provides it).",
+      "label": "Extra Line Content",
+      "description": "What the smaller line under the lyric should show.",
       "options": {
-        "translation": "Translation",
-        "romanization": "Romanization"
+        "translation": "Chinese translation",
+        "romanization": "Romanization / pronunciation"
       }
     },
     "bar_width": {
-      "label": "Bar Max Width",
-      "description": "Maximum (adaptive) or locked (fixed) width in pixels."
+      "label": "Max Width",
+      "description": "Maximum width in adaptive mode, or locked width in fixed mode (px)."
     },
     "bar_width_mode": {
-      "label": "Bar Width Mode",
-      "description": "Follow lyric length or keep a fixed width.",
+      "label": "Width Mode",
+      "description": "Adaptive follows lyric length; fixed keeps a constant width.",
       "options": {
         "adaptive": "Adaptive",
         "fixed": "Fixed"
       }
     },
     "bar_hide": {
-      "label": "Hide When No Track Is Active",
-      "description": "Hide the bar widget when no track is active."
+      "label": "Hide When Idle",
+      "description": "Hide this widget when no track is active."
     },
     "bar_dot": {
-      "label": "Show Status Dot",
-      "description": "Show a colored state indicator before the lyric text."
+      "label": "Status Dot",
+      "description": "Colored dot before the lyric for loading/ready/error state."
     },
     "secondary_primary_font_size": {
-      "label": "Primary Font Size (Two-line)",
-      "description": "Main lyric size when the secondary line is shown."
+      "label": "Main Lyric Size (when extra line is on)",
+      "description": "Font size of the main lyric while the extra line is visible."
     },
     "secondary_font_size": {
-      "label": "Secondary Font Size",
-      "description": "Second-line font size."
+      "label": "Extra Line Font Size",
+      "description": "Font size of the translation/romanization line."
     },
     "secondary_line_gap": {
-      "label": "Line Gap",
-      "description": "Vertical gap between the two lines. Negative pulls them closer."
+      "label": "Gap Between Main and Extra Line",
+      "description": "Vertical spacing between the two lines. Negative values pull them closer (can reduce clipping on short bars)."
     },
     "secondary_opacity": {
-      "label": "Secondary Opacity",
-      "description": "Second-line opacity percent (30–100)."
+      "label": "Extra Line Opacity",
+      "description": "How strong the extra line looks (30 = faint, 100 = full)."
     },
     "padding_left": {
       "label": "Left Padding",
-      "description": "Space between the capsule edge and content on the left (px)."
+      "description": "Space inside the capsule on the left (px)."
     },
     "padding_right": {
       "label": "Right Padding",
-      "description": "Space between the content and the capsule edge on the right (px)."
+      "description": "Space inside the capsule on the right (px)."
     },
     "text_align": {
-      "label": "Text Align",
-      "description": "Horizontal alignment of the lyric lines (most noticeable with fixed width and ellipsis).",
+      "label": "Text Alignment",
+      "description": "Left / center / right for lyric text. Clearest with fixed width when text is ellipsized.",
       "options": {
         "left": "Left",
         "center": "Center",
