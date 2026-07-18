@@ -21,11 +21,15 @@ Network access is used for LRCLib, NetEase, and QQ Music.
 
 ## Usage
 
-1. Add this plugin directory as a path source (or install from the community
-   store once published):
+1. Add the parent repository as a plugin source (git or path):
 
 ```sh
-noctalia msg plugins source add mpris-lyrics-dev path /path/to/noctalia-v5-plugins
+# git
+noctalia msg plugins source add personal git https://github.com/OHMCFXG/noctalia-plugins.git
+
+# or local checkout
+noctalia msg plugins source add personal path /path/to/noctalia-plugins
+
 noctalia msg plugins enable 0x1ce/mpris-lyrics
 ```
 
