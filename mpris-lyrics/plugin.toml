@@ -1,0 +1,116 @@
+# MPRIS Lyrics — bar-synced lyrics for the active media player.
+# Logic lives in a headless [[service]]; the bar [[widget]] is a thin client
+# over noctalia.state. Track metadata and position come from Noctalia's own
+# D-Bus control plane (dev.noctalia.Mpris), not a reimplemented MPRIS client.
+#
+# Settings scopes (Noctalia UI):
+# - [[setting]] plugin-level  → Settings → Plugins → gear on this plugin
+# - [[widget.setting]]        → middle-click the bar widget
+# Manifest changes require disable/enable (or shell reload); .luau hot-reloads only.
+
+id           = "0x1ce/mpris-lyrics"
+name         = "MPRIS Lyrics"
+version      = "1.0.3"
+plugin_api   = 3
+author       = "0x1ce"
+license      = "MIT"
+icon         = "music"
+description  = "Synced lyrics on the bar from NetEase, QQ Music, or LRCLib."
+tags         = ["bar", "service", "media", "music"]
+dependencies = ["busctl", "openssl"]
+
+# ── Plugin-level (Plugins gear + seeded into every entry) ────────────────────
+
+[[setting]]
+key = "playerFilterMode"
+type = "select"
+label_key = "settings.player_filter_mode.label"
+description_key = "settings.player_filter_mode.description"
+default = "blacklist"
+options = [
+  { value = "off", label_key = "settings.player_filter_mode.options.off" },
+  { value = "blacklist", label_key = "settings.player_filter_mode.options.blacklist" },
+  { value = "whitelist", label_key = "settings.player_filter_mode.options.whitelist" },
+]
+
+[[setting]]
+key = "playerFilterList"
+type = "string_list"
+label_key = "settings.player_filter_list.label"
+description_key = "settings.player_filter_list.description"
+default = ["firefox", "chrome", "zen"]
+
+[[setting]]
+key = "primaryLyricsSource"
+type = "select"
+label_key = "settings.primary_source.label"
+description_key = "settings.primary_source.description"
+default = "netease"
+options = [
+  { value = "netease", label_key = "settings.primary_source.options.netease" },
+  { value = "qqmusic", label_key = "settings.primary_source.options.qqmusic" },
+  { value = "lrclib", label_key = "settings.primary_source.options.lrclib" },
+]
+
+[[setting]]
+key = "requestTimeoutMs"
+type = "int"
+label_key = "settings.timeout.label"
+description_key = "settings.timeout.description"
+default = 5000
+min = 1000
+max = 12000
+
+[[setting]]
+key = "lyricAdvanceMs"
+type = "int"
+label_key = "settings.advance.label"
+description_key = "settings.advance.description"
+default = 0
+min = -1500
+max = 1500
+
+# ── Entries ──────────────────────────────────────────────────────────────────
+
+[[service]]
+id = "lyrics"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+  # Middle-click bar widget settings (not shown on Plugins gear).
+  [[widget.setting]]
+  key = "barMaxWidth"
+  type = "int"
+  label_key = "settings.bar_width.label"
+  description_key = "settings.bar_width.description"
+  default = 180
+  min = 60
+  max = 640
+
+  [[widget.setting]]
+  key = "barWidthMode"
+  type = "select"
+  label_key = "settings.bar_width_mode.label"
+  description_key = "settings.bar_width_mode.description"
+  default = "adaptive"
+  options = [
+    { value = "adaptive", label_key = "settings.bar_width_mode.options.adaptive" },
+    { value = "fixed", label_key = "settings.bar_width_mode.options.fixed" },
+  ]
+
+  [[widget.setting]]
+  key = "barHideWhenIdle"
+  type = "bool"
+  label_key = "settings.bar_hide.label"
+  description_key = "settings.bar_hide.description"
+  default = true
+
+  [[widget.setting]]
+  key = "showBarStatusDot"
+  type = "bool"
+  label_key = "settings.bar_dot.label"
+  description_key = "settings.bar_dot.description"
+  default = true

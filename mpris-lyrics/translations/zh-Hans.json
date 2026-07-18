@@ -1,0 +1,75 @@
+{
+  "status": {
+    "idle": "没有活动播放器",
+    "no_track": "等待歌曲元数据",
+    "loading": "正在搜索同步歌词",
+    "ready": "已同步歌词",
+    "plain": "找到了歌词，但没有时间轴",
+    "empty": "没有找到歌词",
+    "error": "歌词暂时不可用",
+    "state_prefix": "状态：{state}",
+    "source_prefix": "来源：{source}",
+    "source_netease": "网易云音乐",
+    "source_qqmusic": "QQ 音乐",
+    "source_lrclib": "LRCLib"
+  },
+  "actions": {
+    "refresh": "重新获取歌词"
+  },
+  "errors": {
+    "plugin_title": "MPRIS 歌词",
+    "busctl_missing": "需要 busctl，但未在 PATH 中找到"
+  },
+  "settings": {
+    "player_filter_mode": {
+      "label": "播放器过滤模式",
+      "description": "选择忽略匹配播放器，或只允许匹配播放器。",
+      "options": {
+        "off": "关闭",
+        "blacklist": "黑名单",
+        "whitelist": "白名单"
+      }
+    },
+    "player_filter_list": {
+      "label": "播放器过滤规则",
+      "description": "大小写不敏感的子串规则，匹配播放器 identity 与 desktop entry。"
+    },
+    "primary_source": {
+      "label": "首选歌词来源",
+      "description": "搜索歌词时优先尝试的来源。",
+      "options": {
+        "netease": "网易云音乐",
+        "qqmusic": "QQ 音乐",
+        "lrclib": "LRCLib"
+      }
+    },
+    "timeout": {
+      "label": "请求超时",
+      "description": "歌词请求超过这个毫秒数就会终止。"
+    },
+    "advance": {
+      "label": "歌词提前量",
+      "description": "正数让歌词更早出现，负数更晚（毫秒）。"
+    },
+    "bar_width": {
+      "label": "Bar 最大宽度",
+      "description": "自适应模式下是最大宽度，固定模式下是锁定宽度（像素）。"
+    },
+    "bar_width_mode": {
+      "label": "Bar 宽度模式",
+      "description": "让宽度跟随当前歌词，或保持固定。",
+      "options": {
+        "adaptive": "自适应",
+        "fixed": "固定"
+      }
+    },
+    "bar_hide": {
+      "label": "无活动曲目时隐藏",
+      "description": "没有活动曲目时隐藏 Bar 上的歌词小部件。"
+    },
+    "bar_dot": {
+      "label": "显示状态点",
+      "description": "在歌词文字前显示彩色状态指示点。"
+    }
+  }
+}

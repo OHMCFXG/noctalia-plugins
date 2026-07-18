@@ -1,0 +1,15 @@
+# Personal Noctalia plugin catalog.
+# Keep one [[plugin]] row per plugin subdirectory; plugin.toml stays authoritative.
+
+[[plugin]]
+id           = "0x1ce/mpris-lyrics"
+name         = "MPRIS Lyrics"
+version      = "1.0.3"
+author       = "0x1ce"
+license      = "MIT"
+icon         = "music"
+description  = "Synced lyrics on the bar from NetEase, QQ Music, or LRCLib."
+deprecated   = false
+plugin_api   = 3
+tags         = ["bar", "service", "media", "music"]
+dependencies = ["busctl", "openssl"]

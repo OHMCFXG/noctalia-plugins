@@ -1,0 +1,7 @@
+# Editor type definitions, fetched from official-plugins (see README).
+/noctalia.d.luau
+
+.DS_Store
+*~
+*.swp
+*.luau.bak

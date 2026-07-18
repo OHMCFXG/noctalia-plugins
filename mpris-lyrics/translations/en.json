@@ -1,0 +1,75 @@
+{
+  "status": {
+    "idle": "No active player",
+    "no_track": "Waiting for track metadata",
+    "loading": "Searching synced lyrics",
+    "ready": "Synced lyrics",
+    "plain": "Lyrics found, but not time-coded",
+    "empty": "No lyrics found",
+    "error": "Lyrics unavailable",
+    "state_prefix": "State: {state}",
+    "source_prefix": "Source: {source}",
+    "source_netease": "NetEase Music",
+    "source_qqmusic": "QQ Music",
+    "source_lrclib": "LRCLib"
+  },
+  "actions": {
+    "refresh": "Refresh Lyrics"
+  },
+  "errors": {
+    "plugin_title": "MPRIS Lyrics",
+    "busctl_missing": "busctl is required but was not found on PATH"
+  },
+  "settings": {
+    "player_filter_mode": {
+      "label": "Player Filter Mode",
+      "description": "Ignore or only allow matching players.",
+      "options": {
+        "off": "Off",
+        "blacklist": "Blacklist",
+        "whitelist": "Whitelist"
+      }
+    },
+    "player_filter_list": {
+      "label": "Player Filter Rules",
+      "description": "Case-insensitive substring rules matched against player identity and desktop entry."
+    },
+    "primary_source": {
+      "label": "Primary Lyrics Source",
+      "description": "Tried first when searching for lyrics.",
+      "options": {
+        "netease": "NetEase Music",
+        "qqmusic": "QQ Music",
+        "lrclib": "LRCLib"
+      }
+    },
+    "timeout": {
+      "label": "Request Timeout",
+      "description": "Abort a lyrics request after this many milliseconds."
+    },
+    "advance": {
+      "label": "Lyric Advance",
+      "description": "Positive values show lyrics earlier; negative values later (ms)."
+    },
+    "bar_width": {
+      "label": "Bar Max Width",
+      "description": "Maximum (adaptive) or locked (fixed) width in pixels."
+    },
+    "bar_width_mode": {
+      "label": "Bar Width Mode",
+      "description": "Follow lyric length or keep a fixed width.",
+      "options": {
+        "adaptive": "Adaptive",
+        "fixed": "Fixed"
+      }
+    },
+    "bar_hide": {
+      "label": "Hide When No Track Is Active",
+      "description": "Hide the bar widget when no track is active."
+    },
+    "bar_dot": {
+      "label": "Show Status Dot",
+      "description": "Show a colored state indicator before the lyric text."
+    }
+  }
+}
