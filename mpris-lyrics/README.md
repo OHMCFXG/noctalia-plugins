@@ -66,6 +66,7 @@ Noctalia exposes plugin settings in **two places**:
 | `playerFilterMode` | select | `blacklist` | `off` / `blacklist` / `whitelist` |
 | `playerFilterList` | string_list | firefox, chrome, zen | Substring match on identity / desktop entry |
 | `primaryLyricsSource` | select | `netease` | Tried first; fallback order is netease → qqmusic → lrclib |
+| `preferPlayerLyrics` | bool | `true` | Prefer MPRIS-embedded player lyrics before network sources |
 | `requestTimeoutMs` | int | `5000` | Network timeout (ms) |
 | `lyricAdvanceMs` | int | `0` | Positive shows lyrics earlier; usually leave at 0 |
 
@@ -90,8 +91,8 @@ noctalia msg plugin 0x1ce/mpris-lyrics:lyrics all refresh
 ## Notes
 
 - Track metadata and playback position come from Noctalia's internal D-Bus API
-  (`dev.noctalia.Mpris`), not from reimplementing MPRIS discovery. Position is
-  host-projected.
+  (`dev.noctalia.Mpris`). Embedded player lyrics are read from the player's own
+  MPRIS `Metadata` (e.g. `xesam:asText`) when **Prefer Player Lyrics** is on.
 - Network requests use `noctalia.http`, which is **libcurl** inside Noctalia
   (not Qt Network / Quickshell XHR). On this machine both **NetEase** (weapi
   encrypt via openssl + `noctalia.http` POST) and **QQ Music** (search + lyric

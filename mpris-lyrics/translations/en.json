@@ -11,7 +11,8 @@
     "source_prefix": "Source: {source}",
     "source_netease": "NetEase Music",
     "source_qqmusic": "QQ Music",
-    "source_lrclib": "LRCLib"
+    "source_lrclib": "LRCLib",
+    "source_player": "Player"
   },
   "actions": {
     "refresh": "Refresh Lyrics"
@@ -42,6 +43,10 @@
         "qqmusic": "QQ Music",
         "lrclib": "LRCLib"
       }
+    },
+    "prefer_player_lyrics": {
+      "label": "Prefer Player Lyrics",
+      "description": "Use lyrics embedded in the player (MPRIS) before network sources, when available."
     },
     "timeout": {
       "label": "Request Timeout",

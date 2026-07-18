@@ -11,7 +11,8 @@
     "source_prefix": "来源：{source}",
     "source_netease": "网易云音乐",
     "source_qqmusic": "QQ 音乐",
-    "source_lrclib": "LRCLib"
+    "source_lrclib": "LRCLib",
+    "source_player": "播放器"
   },
   "actions": {
     "refresh": "重新获取歌词"
@@ -42,6 +43,10 @@
         "qqmusic": "QQ 音乐",
         "lrclib": "LRCLib"
       }
+    },
+    "prefer_player_lyrics": {
+      "label": "优先使用播放器歌词",
+      "description": "若播放器通过 MPRIS 提供歌词，则优先于网络来源。"
     },
     "timeout": {
       "label": "请求超时",

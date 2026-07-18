@@ -68,6 +68,7 @@ local function lyricsConfigFingerprint()
     tostring(cfg("playerFilterMode") or ""),
     listKey,
     tostring(cfg("primaryLyricsSource") or ""),
+    tostring(cfg("preferPlayerLyrics")),
     tostring(cfg("requestTimeoutMs") or ""),
     tostring(cfg("lyricAdvanceMs") or ""),
   }, "|")
@@ -483,6 +484,170 @@ local BUSCTL_ACTIVE =
 local BUSCTL_POS =
   "busctl --user call dev.noctalia.Mpris /dev/noctalia/Mpris dev.noctalia.Mpris GetPositionActive --json=short"
 
+local function shellQuote(value)
+  return "'" .. tostring(value):gsub("'", "'\"'\"'") .. "'"
+end
+
+-- Read embedded lyrics from the player's own MPRIS Metadata (not Noctalia's
+-- control dict). Keys commonly used by players / KDE / LRC providers.
+local PLAYER_LYRIC_META_KEYS = {
+  "xesam:asText",
+  "xesam:lyrics",
+  "xesam:lyric",
+  "xesam:lrc",
+  "mpris:lyrics",
+  "kde:lyrics",
+  "lyrics",
+  "lyric",
+  "syncedLyrics",
+  "synced_lyrics",
+  "lrc",
+  "lrcLyrics",
+  "lrc_lyrics",
+  "lyricsText",
+  "lyricText",
+  "lrcText",
+}
+
+local function isLikelyLyricsMetaKey(key)
+  local k = tostring(key or ""):lower()
+  if k == "xesam:astext" then
+    return true
+  end
+  return string.find(k, "lyric", 1, true) ~= nil or string.find(k, "lrc", 1, true) ~= nil
+end
+
+local function metaValueToText(value)
+  if value == nil then
+    return ""
+  end
+  if type(value) == "table" then
+    -- busctl --json wraps as { type=..., data=... }
+    if value.data ~= nil then
+      return metaValueToText(value.data)
+    end
+    local parts = {}
+    for _, item in ipairs(value) do
+      local line = cleanText(item)
+      if line ~= "" then
+        table.insert(parts, line)
+      end
+    end
+    return table.concat(parts, "\n")
+  end
+  return tostring(value)
+end
+
+local function extractLyricsFromMetadataDict(dict)
+  if type(dict) ~= "table" then
+    return ""
+  end
+  local candidates = {}
+  local seen = {}
+
+  local function addCandidate(raw)
+    local text = metaValueToText(raw)
+    -- Do not cleanText here — preserve newlines for LRC.
+    text = text:gsub("\r\n", "\n"):gsub("\r", "\n")
+    local trimmed = noctalia.string.trim(text)
+    if trimmed == "" or seen[trimmed] then
+      return
+    end
+    seen[trimmed] = true
+    table.insert(candidates, text)
+  end
+
+  for _, key in ipairs(PLAYER_LYRIC_META_KEYS) do
+    if dict[key] ~= nil then
+      addCandidate(dict[key])
+    end
+  end
+  for key, value in pairs(dict) do
+    if isLikelyLyricsMetaKey(key) then
+      addCandidate(value)
+    end
+  end
+
+  for _, text in ipairs(candidates) do
+    local synced = parseLrc(text)
+    if #synced > 0 then
+      return text, "ready", synced
+    end
+  end
+  for _, text in ipairs(candidates) do
+    local plain = parsePlainLyrics(text)
+    if #plain > 0 then
+      return text, "plain", plain
+    end
+  end
+  return "", nil, nil
+end
+
+local function parseMetadataJson(raw)
+  local decoded, err = noctalia.json.decode(raw)
+  if not decoded then
+    return nil, err or "json decode failed"
+  end
+  -- get-property --json=short: { type: "a{sv}", data: { key: {type,data}, ... } }
+  local data = decoded.data
+  if type(data) ~= "table" then
+    return nil, "unexpected metadata shape"
+  end
+  -- Sometimes nested under data again depending on busctl version
+  if data.data ~= nil and type(data.data) == "table" and data.type ~= nil then
+    data = data.data
+  end
+  local meta = {}
+  for key, node in pairs(data) do
+    meta[key] = variantData(node)
+  end
+  return meta
+end
+
+local function busctlMetadataCommand(busName)
+  -- busctl get-property SERVICE OBJECT INTERFACE PROPERTY
+  return "busctl --user get-property "
+    .. shellQuote(busName)
+    .. " /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player Metadata --json=short"
+end
+
+local function tryPlayerEmbeddedLyrics(cacheKey, token, callback)
+  local busName = track.busName
+  if busName == nil or busName == "" then
+    callback(nil)
+    return
+  end
+  local cmd = busctlMetadataCommand(busName)
+  local accepted = noctalia.runAsync(cmd, function(result)
+    if token ~= fetchToken or cacheKey ~= track.key then
+      callback(nil)
+      return
+    end
+    if not result or result.exitCode ~= 0 then
+      callback(nil)
+      return
+    end
+    local meta = parseMetadataJson(result.stdout or "")
+    if not meta then
+      callback(nil)
+      return
+    end
+    local _text, kind, payload = extractLyricsFromMetadataDict(meta)
+    if kind == "ready" then
+      callback({ state = "ready", entries = payload, plainLines = {}, error = "", source = "player" })
+      return
+    end
+    if kind == "plain" then
+      callback({ state = "plain", entries = {}, plainLines = payload, error = "", source = "player" })
+      return
+    end
+    callback(nil)
+  end, 3000)
+  if not accepted then
+    callback(nil)
+  end
+end
+
 -- ── Player filter ────────────────────────────────────────────────────────────
 
 local function normalizeFilterList(list)
@@ -644,6 +809,9 @@ local function sourceDisplayName(sourceKey)
   end
   if sourceKey == "lrclib" then
     return noctalia.tr("status.source_lrclib")
+  end
+  if sourceKey == "player" then
+    return noctalia.tr("status.source_player")
   end
   return cleanText(sourceKey)
 end
@@ -868,10 +1036,6 @@ local function randomSecret()
     table.insert(secret, BASE62:sub(idx, idx))
   end
   return table.concat(secret)
-end
-
-local function shellQuote(value)
-  return "'" .. tostring(value):gsub("'", "'\"'\"'") .. "'"
 end
 
 local function asciiHex(value)
@@ -1364,20 +1528,56 @@ loadLyrics = function(forceRefresh)
 
   fetchToken += 1
   local token = fetchToken
-  local cached = lyricsCache[cacheKey]
-  if not forceRefresh and type(cached) == "table" then
-    applyResult(cached, cacheKey)
+  local preferPlayer = cfg("preferPlayerLyrics")
+  if preferPlayer == nil then
+    preferPlayer = true
+  end
+
+  local function useCacheOrNetwork()
+    if token ~= fetchToken or cacheKey ~= track.key then
+      return
+    end
+    local cached = lyricsCache[cacheKey]
+    if not forceRefresh and type(cached) == "table" then
+      -- Don't reuse player-sourced cache when preferPlayerLyrics is off.
+      if preferPlayer or cached.source ~= "player" then
+        applyResult(cached, cacheKey)
+        return
+      end
+    end
+
+    fetchState = "loading"
+    lyricsEntries = {}
+    plainLyricsLines = {}
+    currentLineIndex = -1
+    currentLyricsSource = ""
+    lyricRevision += 1
+    publishSnapshot()
+    fetchNextSource(cacheKey, token, lyricsSourceOrder(), 1)
+  end
+
+  if preferPlayer and track.busName ~= "" then
+    fetchState = "loading"
+    lyricsEntries = {}
+    plainLyricsLines = {}
+    currentLineIndex = -1
+    currentLyricsSource = ""
+    lyricRevision += 1
+    publishSnapshot()
+    tryPlayerEmbeddedLyrics(cacheKey, token, function(result)
+      if token ~= fetchToken or cacheKey ~= track.key then
+        return
+      end
+      if result then
+        applyResult(result, cacheKey)
+        return
+      end
+      useCacheOrNetwork()
+    end)
     return
   end
 
-  fetchState = "loading"
-  lyricsEntries = {}
-  plainLyricsLines = {}
-  currentLineIndex = -1
-  currentLyricsSource = ""
-  lyricRevision += 1
-  publishSnapshot()
-  fetchNextSource(cacheKey, token, lyricsSourceOrder(), 1)
+  useCacheOrNetwork()
 end
 
 local function scheduleLyricsRefresh(force)

@@ -10,7 +10,7 @@
 
 id           = "0x1ce/mpris-lyrics"
 name         = "MPRIS Lyrics"
-version      = "1.0.3"
+version      = "1.1.0"
 plugin_api   = 3
 author       = "0x1ce"
 license      = "MIT"
@@ -51,6 +51,13 @@ options = [
   { value = "qqmusic", label_key = "settings.primary_source.options.qqmusic" },
   { value = "lrclib", label_key = "settings.primary_source.options.lrclib" },
 ]
+
+[[setting]]
+key = "preferPlayerLyrics"
+type = "bool"
+label_key = "settings.prefer_player_lyrics.label"
+description_key = "settings.prefer_player_lyrics.description"
+default = true
 
 [[setting]]
 key = "requestTimeoutMs"
