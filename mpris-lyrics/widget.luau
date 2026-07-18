@@ -1,11 +1,10 @@
 --!nonstrict
 -- MPRIS Lyrics — bar widget (thin client over service snapshot).
--- Presentation-only: width, status dot, optional secondary line layout.
--- Data (track, lines, translation/romanization) comes from the service snapshot.
+-- Owns presentation only. Track/lyrics data come from the service snapshot.
 
 local snap = noctalia.state.get("snapshot") or {}
 
--- ── Config helpers (instance settings from middle-click + seeded plugin keys) ─
+-- ── Config helpers ───────────────────────────────────────────────────────────
 
 local function cfgBool(key, fallback)
   local value = noctalia.getConfig(key)
@@ -15,16 +14,16 @@ local function cfgBool(key, fallback)
   return value == true or value == "true" or value == 1 or value == "1"
 end
 
-local function cfgNumber(key, fallback, minValue, maxValue)
+local function cfgNumber(key, fallback, lo, hi)
   local value = tonumber(noctalia.getConfig(key))
   if value == nil then
     value = fallback
   end
-  if minValue ~= nil then
-    value = math.max(minValue, value)
+  if lo ~= nil then
+    value = math.max(lo, value)
   end
-  if maxValue ~= nil then
-    value = math.min(maxValue, value)
+  if hi ~= nil then
+    value = math.min(hi, value)
   end
   return value
 end
@@ -37,11 +36,14 @@ local function cfgString(key, fallback)
   return value
 end
 
--- ── Bar thickness / status dot ───────────────────────────────────────────────
+-- ── Bar metrics ──────────────────────────────────────────────────────────────
 
 local DEFAULT_BAR_THICKNESS = 34
 local CAPSULE_FRACTION = 0.76
 local DOT_FRACTION = 0.16
+local DEFAULT_ROW_GAP = 6
+local TWO_LINE_ROW_GAP = 3
+
 local barThickness = DEFAULT_BAR_THICKNESS
 local thicknessRefreshLeft = 0
 
@@ -63,11 +65,10 @@ local function readBarThickness()
 end
 
 local function statusDotSize()
-  local capsule = barThickness * CAPSULE_FRACTION
-  return math.max(6, math.floor(capsule * DOT_FRACTION + 0.5))
+  return math.max(6, math.floor(barThickness * CAPSULE_FRACTION * DOT_FRACTION + 0.5))
 end
 
--- ── Presentation helpers ─────────────────────────────────────────────────────
+-- ── Snapshot → text ──────────────────────────────────────────────────────────
 
 local function roleColor(role)
   if role == "primary" or role == "secondary" or role == "tertiary" or role == "error" then
@@ -76,15 +77,7 @@ local function roleColor(role)
   return "outline"
 end
 
-local function hasActiveTrack()
-  return not not snap.hasActiveTrack
-end
-
-local function shouldHide(hideWhenIdle)
-  return hideWhenIdle and not hasActiveTrack()
-end
-
-local function displayText()
+local function mainText()
   local text = snap.barText
   if type(text) == "string" and text ~= "" then
     return text
@@ -92,104 +85,182 @@ local function displayText()
   return noctalia.tr("status.idle")
 end
 
--- Choose secondary text from service-provided translation / romanization fields.
-local function secondaryText()
-  if not cfgBool("showSecondaryLine", false) then
-    return ""
-  end
-  local mode = cfgString("secondaryLineContent", "translation")
-  local text = ""
-  if mode == "romanization" then
-    text = snap.currentRomanization
-  else
-    text = snap.currentTranslation
-  end
-  if type(text) == "string" and text ~= "" then
-    return text
-  end
-  return ""
-end
-
-local function secondaryLayout()
-  return {
-    primaryFontSize = cfgNumber("secondaryPrimaryFontSize", 12, 8, 20),
-    secondaryFontSize = cfgNumber("secondaryFontSize", 10, 7, 16),
-    lineGap = cfgNumber("secondaryLineGap", -4, -12, 8),
-    opacity = cfgNumber("secondaryOpacity", 70, 30, 100) / 100,
-    rowGap = 3,
-  }
-end
-
-local function normalizeTextAlign(value)
-  if value == "left" or value == "right" or value == "center" then
-    return value
-  end
-  return "center"
-end
-
--- Map text align to flex cross-axis align for the two-line column.
-local function columnAlignFor(textAlign)
-  if textAlign == "left" then
+-- Host textAlign tokens are start|center|end (settings use left|center|right).
+local function hostTextAlign(value)
+  if value == "left" or value == "start" then
     return "start"
   end
-  if textAlign == "right" then
+  if value == "right" or value == "end" then
     return "end"
   end
   return "center"
 end
 
-local function buildTextBlock(text, secondary, textWidth, isFixed, fetchState, textAlign)
-  local primaryColor = if fetchState == "ready" or fetchState == "plain" then "on_surface" else "on_surface_variant"
-  local showSecondary = secondary ~= ""
-  local layout = if showSecondary then secondaryLayout() else nil
-  textAlign = normalizeTextAlign(textAlign)
+local function extraLineText()
+  if not cfgBool("showSecondaryLine", false) then
+    return ""
+  end
+  local field
+  if cfgString("secondaryLineContent", "translation") == "romanization" then
+    field = snap.currentRomanization
+  else
+    field = snap.currentTranslation
+  end
+  if type(field) == "string" and field ~= "" then
+    return field
+  end
+  return ""
+end
 
-  local primaryLabel = {
-    text = text,
-    maxWidth = textWidth,
-    maxLines = 1,
-    color = primaryColor,
-    textAlign = textAlign,
+-- ── Layout plan (one place for all presentation knobs) ───────────────────────
+
+local function readLayout()
+  local widthMode = cfgString("barWidthMode", "adaptive")
+  if widthMode ~= "fixed" then
+    widthMode = "adaptive"
+  end
+  local extra = extraLineText()
+  local showExtra = extra ~= ""
+  return {
+    showDot = cfgBool("showBarStatusDot", true),
+    hideWhenIdle = cfgBool("barHideWhenIdle", true),
+    maxWidth = math.max(40, cfgNumber("barMaxWidth", 180, 40, 640)),
+    widthMode = widthMode,
+    fixed = widthMode == "fixed",
+    textAlign = hostTextAlign(cfgString("textAlign", "center")),
+    padL = cfgNumber("paddingLeft", 3, 0, 32),
+    padR = cfgNumber("paddingRight", 3, 0, 32),
+    extraText = extra,
+    showExtra = showExtra,
+    primaryFontSize = cfgNumber("secondaryPrimaryFontSize", 12, 8, 20),
+    extraFontSize = cfgNumber("secondaryFontSize", 10, 7, 16),
+    lineGap = cfgNumber("secondaryLineGap", -4, -12, 8),
+    extraOpacity = cfgNumber("secondaryOpacity", 70, 30, 100) / 100,
+    rowGap = if showExtra then TWO_LINE_ROW_GAP else DEFAULT_ROW_GAP,
+    vertical = barWidget.isVertical(),
   }
-  -- Fixed width: force label box width so textAlign/ellipsis align consistently.
-  if isFixed then
-    primaryLabel.width = textWidth
+end
+
+-- Remaining width for the lyric column after pads, status dot, and inter-child gaps.
+local function lyricColumnWidth(layout, dotSize)
+  local padL = if layout.vertical then 0 else layout.padL
+  local padR = if layout.vertical then 0 else layout.padR
+  local parts = 1 -- lyric column
+  if padL > 0 then
+    parts += 1
   end
-
-  if not showSecondary then
-    return ui.label(primaryLabel), 6
+  if layout.showDot then
+    parts += 1
   end
+  if padR > 0 then
+    parts += 1
+  end
+  local fixed = padL + padR + (if layout.showDot then dotSize else 0)
+  local gaps = math.max(0, parts - 1) * layout.rowGap
+  return math.max(24, layout.maxWidth - fixed - gaps), padL, padR
+end
 
-  primaryLabel.fontSize = layout.primaryFontSize
-  primaryLabel.fontWeight = "normal"
-  primaryLabel.baseline = "inkCentered"
+-- ── UI builders ──────────────────────────────────────────────────────────────
 
-  local secondaryLabel = {
-    text = secondary,
-    maxWidth = textWidth,
+local function makeLabel(text, opts)
+  local label = {
+    text = text,
+    maxWidth = opts.maxWidth,
     maxLines = 1,
-    fontSize = layout.secondaryFontSize,
+    color = opts.color,
+    textAlign = opts.textAlign,
+  }
+  if opts.fontSize ~= nil then
+    label.fontSize = opts.fontSize
+  end
+  if opts.fontWeight ~= nil then
+    label.fontWeight = opts.fontWeight
+  end
+  if opts.baseline ~= nil then
+    label.baseline = opts.baseline
+  end
+  if opts.opacity ~= nil then
+    label.opacity = opts.opacity
+  end
+  return ui.label(label)
+end
+
+-- Force a layout width so host textAlign can shift ink inside the box.
+-- (label.width is ignored by the reconciler; stretch columns assign exact width.)
+local function forceWidthColumn(child, width)
+  return ui.column({
+    width = width,
+    minWidth = width,
+    gap = 0,
+    align = "stretch",
+    justify = "center",
+    flexGrow = 1,
+  }, { child })
+end
+
+local function buildLyricColumn(main, extra, width, layout, fetchState)
+  local mainColor = if fetchState == "ready" or fetchState == "plain" then "on_surface" else "on_surface_variant"
+  local align = layout.textAlign
+
+  if not layout.showExtra then
+    local label = makeLabel(main, {
+      maxWidth = width,
+      color = mainColor,
+      textAlign = align,
+    })
+    if layout.fixed then
+      return forceWidthColumn(label, width)
+    end
+    return label
+  end
+
+  local primary = makeLabel(main, {
+    maxWidth = width,
+    color = mainColor,
+    textAlign = align,
+    fontSize = layout.primaryFontSize,
     fontWeight = "normal",
     baseline = "inkCentered",
+  })
+  local secondary = makeLabel(extra, {
+    maxWidth = width,
     color = "on_surface_variant",
-    opacity = layout.opacity,
-    textAlign = textAlign,
-  }
-  if isFixed then
-    secondaryLabel.width = textWidth
-  end
+    textAlign = align,
+    fontSize = layout.extraFontSize,
+    fontWeight = "normal",
+    baseline = "inkCentered",
+    opacity = layout.extraOpacity,
+  })
 
-  local block = ui.column({
+  local props = {
     gap = layout.lineGap,
-    align = columnAlignFor(textAlign),
     justify = "center",
     padding = 0,
     paddingV = 0,
-  }, {
-    ui.label(primaryLabel),
-    ui.label(secondaryLabel),
+  }
+  if layout.fixed then
+    props.width = width
+    props.minWidth = width
+    props.align = "stretch"
+    props.flexGrow = 1
+  else
+    props.align = align
+  end
+  return ui.column(props, { primary, secondary })
+end
+
+local function spacer(width)
+  return ui.box({ width = width, height = 1, opacity = 0 })
+end
+
+local function statusDot(size, color, loading)
+  return ui.box({
+    width = size,
+    height = size,
+    radius = size / 2,
+    fill = color,
+    opacity = if loading then 0.55 else 1.0,
   })
-  return block, layout.rowGap
 end
 
 -- ── Render ───────────────────────────────────────────────────────────────────
@@ -197,18 +268,9 @@ end
 local lastRenderKey = ""
 
 local function render()
-  local showDot = cfgBool("showBarStatusDot", true)
-  local hideWhenIdle = cfgBool("barHideWhenIdle", true)
-  local maxWidth = math.max(40, cfgNumber("barMaxWidth", 180, 40, 640))
-  local widthMode = cfgString("barWidthMode", "adaptive")
-  if widthMode ~= "fixed" then
-    widthMode = "adaptive"
-  end
-  local textAlign = normalizeTextAlign(cfgString("textAlign", "center"))
-  local paddingLeft = cfgNumber("paddingLeft", 3, 0, 32)
-  local paddingRight = cfgNumber("paddingRight", 3, 0, 32)
+  local layout = readLayout()
 
-  if shouldHide(hideWhenIdle) then
+  if layout.hideWhenIdle and not snap.hasActiveTrack then
     if lastRenderKey ~= "hidden" then
       lastRenderKey = "hidden"
       barWidget.setVisible(false)
@@ -217,37 +279,28 @@ local function render()
     return
   end
 
-  local text = displayText()
-  local secondary = secondaryText()
+  local main = mainText()
   local color = roleColor(snap.statusRole)
-  local isFixed = widthMode == "fixed"
-  local isVertical = barWidget.isVertical()
-  local showSecondary = secondary ~= ""
-  local dotSize = statusDotSize()
-  local layout = if showSecondary then secondaryLayout() else {
-    primaryFontSize = 0,
-    secondaryFontSize = 0,
-    lineGap = 0,
-    opacity = 0,
-    rowGap = 6,
-  }
+  local baseDot = statusDotSize()
+  local dotSize = if layout.showExtra then math.max(5, math.floor(baseDot * 0.85 + 0.5)) else baseDot
+  local textWidth, padL, padR = lyricColumnWidth(layout, dotSize)
 
   local renderKey = table.concat({
-    text,
-    secondary,
+    main,
+    layout.extraText,
     color,
-    tostring(showDot),
-    tostring(maxWidth),
-    widthMode,
+    tostring(layout.showDot),
+    tostring(layout.maxWidth),
+    layout.widthMode,
     tostring(dotSize),
-    tostring(showSecondary),
+    tostring(layout.showExtra),
     tostring(layout.primaryFontSize),
-    tostring(layout.secondaryFontSize),
+    tostring(layout.extraFontSize),
     tostring(layout.lineGap),
-    tostring(layout.opacity),
-    tostring(paddingLeft),
-    tostring(paddingRight),
-    textAlign,
+    tostring(layout.extraOpacity),
+    tostring(padL),
+    tostring(padR),
+    layout.textAlign,
     tostring(snap.fetchState or ""),
   }, "|")
   if renderKey == lastRenderKey then
@@ -256,45 +309,29 @@ local function render()
   lastRenderKey = renderKey
 
   barWidget.setVisible(true)
-  local gap = layout.rowGap
-  local visualDot = if showSecondary then math.max(5, math.floor(dotSize * 0.85 + 0.5)) else dotSize
-  local dotSlot = if showDot then (visualDot + gap) else 0
-  local sidePad = if isVertical then 0 else (paddingLeft + paddingRight)
-  local textWidth = math.max(40, maxWidth - dotSlot - sidePad)
-  local textBlock = buildTextBlock(text, secondary, textWidth, isFixed, snap.fetchState, textAlign)
 
   local children = {}
-  if not isVertical and paddingLeft > 0 then
-    table.insert(children, ui.box({ width = paddingLeft, height = 1, opacity = 0 }))
+  if padL > 0 then
+    table.insert(children, spacer(padL))
   end
-  if showDot then
-    table.insert(children, ui.box({
-      width = visualDot,
-      height = visualDot,
-      radius = visualDot / 2,
-      fill = color,
-      opacity = if snap.fetchState == "loading" then 0.55 else 1.0,
-    }))
+  if layout.showDot then
+    table.insert(children, statusDot(dotSize, color, snap.fetchState == "loading"))
   end
-  table.insert(children, textBlock)
-  if not isVertical and paddingRight > 0 then
-    table.insert(children, ui.box({ width = paddingRight, height = 1, opacity = 0 }))
+  table.insert(children, buildLyricColumn(main, layout.extraText, textWidth, layout, snap.fetchState))
+  if padR > 0 then
+    table.insert(children, spacer(padR))
   end
 
-  local container = if isVertical then ui.column else ui.row
+  local container = if layout.vertical then ui.column else ui.row
   local rowProps = {
-    gap = gap,
+    gap = layout.rowGap,
     align = "center",
+    justify = "start",
   }
-  -- Prefer host horizontal padding when supported (also keeps fixed-width math simple).
-  if not isVertical then
-    rowProps.paddingH = 0
+  if layout.fixed and not layout.vertical then
+    rowProps.width = layout.maxWidth
+    rowProps.minWidth = layout.maxWidth
   end
-  if isFixed and not isVertical then
-    rowProps.width = maxWidth
-    rowProps.minWidth = maxWidth
-  end
-
   barWidget.render(container(rowProps, children))
 
   local tip = snap.tooltipText
@@ -306,11 +343,7 @@ local function render()
 end
 
 noctalia.state.watch("snapshot", function(value)
-  if type(value) == "table" then
-    snap = value
-  else
-    snap = {}
-  end
+  snap = if type(value) == "table" then value else {}
   render()
 end)
 

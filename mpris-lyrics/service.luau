@@ -53,7 +53,7 @@ local function nowMs()
   return wallMs
 end
 
--- Snapshot of settings that affect lyrics fetching / line timing.
+-- Fingerprint of service-owned settings (filter / source / timing).
 local function lyricsConfigFingerprint()
   local list = cfg("playerFilterList")
   local listKey = ""
@@ -1838,38 +1838,16 @@ function onIpc(event, _payload)
   end
 end
 
--- Settings that force a network re-fetch when changed.
-local function lyricsFetchFingerprint()
-  local list = cfg("playerFilterList")
-  local listKey = ""
-  if type(list) == "table" then
-    local parts = {}
-    for _, rule in ipairs(list) do
-      table.insert(parts, tostring(rule))
-    end
-    listKey = table.concat(parts, "\n")
-  end
-  return table.concat({
-    tostring(cfg("playerFilterMode") or ""),
-    listKey,
-    tostring(cfg("primaryLyricsSource") or ""),
-    tostring(cfg("preferPlayerLyrics")),
-    tostring(cfg("requestTimeoutMs") or ""),
-    tostring(cfg("lyricAdvanceMs") or ""),
-  }, "|")
-end
-
-local lastLyricsFetchFp = lyricsFetchFingerprint()
+local lastLyricsFetchFp = lyricsConfigFingerprint()
 
 function onConfigChanged()
-  -- Service only owns fetch/timing settings. Presentation is per-widget.
-  local fetchFp = lyricsFetchFingerprint()
-  local fetchChanged = fetchFp ~= lastLyricsFetchFp
-  lastLyricsFetchFp = fetchFp
-  lastLyricsConfigFp = lyricsConfigFingerprint()
+  -- Service owns filter/source/timing only. Presentation is per-widget instance.
+  local fp = lyricsConfigFingerprint()
+  local changed = fp ~= lastLyricsFetchFp
+  lastLyricsFetchFp = fp
+  lastLyricsConfigFp = fp
 
-  if not fetchChanged then
-    -- e.g. only lyricAdvanceMs already in fetch fp; no-op display changes land here rarely.
+  if not changed then
     updateCurrentLine(true)
     publishSnapshot()
     return
