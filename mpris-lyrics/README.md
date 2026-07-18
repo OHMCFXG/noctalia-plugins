@@ -66,7 +66,7 @@ Noctalia exposes plugin settings in **two places**:
 | `playerFilterMode` | select | `blacklist` | `off` / `blacklist` / `whitelist` |
 | `playerFilterList` | string_list | firefox, chrome, zen | Substring match on identity / desktop entry |
 | `primaryLyricsSource` | select | `netease` | Tried first; fallback order is netease → qqmusic → lrclib |
-| `preferPlayerLyrics` | bool | `true` | Prefer MPRIS-embedded player lyrics before network sources |
+| `preferPlayerLyrics` | bool | `false` | Prefer MPRIS-embedded player lyrics before network sources |
 | `requestTimeoutMs` | int | `5000` | Network timeout (ms) |
 | `lyricAdvanceMs` | int | `0` | Positive shows lyrics earlier; usually leave at 0 |
 

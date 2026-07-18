@@ -1530,7 +1530,7 @@ loadLyrics = function(forceRefresh)
   local token = fetchToken
   local preferPlayer = cfg("preferPlayerLyrics")
   if preferPlayer == nil then
-    preferPlayer = true
+    preferPlayer = false
   end
 
   local function useCacheOrNetwork()
