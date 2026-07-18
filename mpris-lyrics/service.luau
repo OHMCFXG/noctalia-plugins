@@ -391,6 +391,57 @@ local function parseLyricsRecord(record)
   return nil
 end
 
+-- Attach a timed secondary LRC track onto primary entries by nearest timestamp.
+local function mergeTimedField(primary, secondary, field, toleranceMs)
+  if type(primary) ~= "table" or type(secondary) ~= "table" or #secondary == 0 then
+    return primary
+  end
+  toleranceMs = tonumber(toleranceMs) or 500
+  for _, s in ipairs(secondary) do
+    local st = tonumber(s.timeMs) or 0
+    local text = s.text or ""
+    if text ~= "" then
+      local bestIdx, bestDist = nil, toleranceMs + 1
+      for i, p in ipairs(primary) do
+        local dist = math.abs((tonumber(p.timeMs) or 0) - st)
+        if dist < bestDist then
+          bestDist = dist
+          bestIdx = i
+        end
+      end
+      if bestIdx ~= nil and bestDist <= toleranceMs then
+        local cur = primary[bestIdx][field]
+        if cur == nil or cur == "" then
+          primary[bestIdx][field] = text
+        end
+      end
+    end
+  end
+  return primary
+end
+
+local function enrichEntriesWithSecondary(entries, translationLrc, romanizationLrc)
+  if type(entries) ~= "table" or #entries == 0 then
+    return entries
+  end
+  -- Ensure fields exist
+  for _, e in ipairs(entries) do
+    if e.translation == nil then
+      e.translation = ""
+    end
+    if e.romanization == nil then
+      e.romanization = ""
+    end
+  end
+  if translationLrc and translationLrc ~= "" then
+    mergeTimedField(entries, parseLrc(translationLrc), "translation", 500)
+  end
+  if romanizationLrc and romanizationLrc ~= "" then
+    mergeTimedField(entries, parseLrc(romanizationLrc), "romanization", 500)
+  end
+  return entries
+end
+
 -- ── MPRIS via busctl JSON ────────────────────────────────────────────────────
 
 local function variantData(node)
@@ -735,6 +786,23 @@ local loggedSourceKey = ""
 
 local FALLBACK_ORDER = { "netease", "qqmusic", "lrclib" }
 
+-- Per-line secondary fields for the widget (presentation chooses which to show).
+local function currentLineField(field)
+  if fetchState ~= "ready" or currentLineIndex < 1 or currentLineIndex > #lyricsEntries then
+    return ""
+  end
+  local entry = lyricsEntries[currentLineIndex]
+  if type(entry) ~= "table" then
+    return ""
+  end
+  local text = entry[field]
+  if text == nil or text == "" then
+    return ""
+  end
+  return tostring(text):gsub("^%s+", ""):gsub("%s+$", "")
+end
+
+
 -- ── Playhead ─────────────────────────────────────────────────────────────────
 
 local function resetPlayhead()
@@ -917,6 +985,9 @@ local function publishSnapshot()
     isPlaying = track.isPlaying,
     fetchState = fetchState,
     currentLineText = currentLineText(),
+    -- Widget picks translation vs romanization (instance setting).
+    currentTranslation = currentLineField("translation"),
+    currentRomanization = currentLineField("romanization"),
     plainExcerpt = plainExcerpt(),
     currentLyricsSource = currentLyricsSource,
     barText = barText(),
@@ -927,6 +998,8 @@ local function publishSnapshot()
   local key = table.concat({
     snap.fetchState,
     snap.barText,
+    snap.currentTranslation or "",
+    snap.currentRomanization or "",
     snap.tooltipText,
     snap.statusRole,
     tostring(snap.hasActiveTrack),
@@ -1326,9 +1399,10 @@ local function fetchNetease(cacheKey, token, callback)
     neteaseWeApi("https://music.163.com/weapi/song/lyric", {
       id = bestId,
       lv = -1,
-      kv = -1,
       tv = -1,
-      os = "osx",
+      rv = -1,
+      kv = -1,
+      _nmclfl = 1,
     }, cacheKey, token, function(ok2, lyricData)
       if not ok2 or type(lyricData) ~= "table" then
         callback(nil)
@@ -1341,6 +1415,9 @@ local function fetchNetease(cacheKey, token, callback)
       local lyric = tostring(lyricData.lrc and lyricData.lrc.lyric or "")
       local parsed = parseLrc(lyric)
       if #parsed > 0 then
+        local tlyric = tostring(lyricData.tlyric and lyricData.tlyric.lyric or "")
+        local romalrc = tostring(lyricData.romalrc and lyricData.romalrc.lyric or "")
+        enrichEntriesWithSecondary(parsed, tlyric, romalrc)
         callback({ state = "ready", entries = parsed, plainLines = {}, error = "" })
       else
         callback(nil)
@@ -1475,6 +1552,17 @@ local function fetchQQMusic(cacheKey, token, callback)
       local lyric = tostring(payload.lyric or "")
       local parsed = parseLrc(lyric)
       if #parsed > 0 then
+        local trans = tostring(payload.trans or "")
+        local roma = tostring(payload.roma or "")
+        -- Some responses base64-encode when nobase64 is ignored
+        if trans ~= "" and not string.find(trans, "%[%d", 1) then
+          -- leave as-is; plain non-LRC trans is useless for merge
+          trans = ""
+        end
+        if roma ~= "" and not string.find(roma, "%[%d", 1) then
+          roma = ""
+        end
+        enrichEntriesWithSecondary(parsed, trans, roma)
         callback({ state = "ready", entries = parsed, plainLines = {}, error = "" })
       else
         callback(nil)
@@ -1750,23 +1838,46 @@ function onIpc(event, _payload)
   end
 end
 
-function onConfigChanged()
-  local fp = lyricsConfigFingerprint()
-  local lyricsChanged = fp ~= lastLyricsConfigFp
-  lastLyricsConfigFp = fp
+-- Settings that force a network re-fetch when changed.
+local function lyricsFetchFingerprint()
+  local list = cfg("playerFilterList")
+  local listKey = ""
+  if type(list) == "table" then
+    local parts = {}
+    for _, rule in ipairs(list) do
+      table.insert(parts, tostring(rule))
+    end
+    listKey = table.concat(parts, "\n")
+  end
+  return table.concat({
+    tostring(cfg("playerFilterMode") or ""),
+    listKey,
+    tostring(cfg("primaryLyricsSource") or ""),
+    tostring(cfg("preferPlayerLyrics")),
+    tostring(cfg("requestTimeoutMs") or ""),
+    tostring(cfg("lyricAdvanceMs") or ""),
+  }, "|")
+end
 
-  -- Bar display settings (width/dot/hide) do not need a network refetch.
-  if not lyricsChanged then
+local lastLyricsFetchFp = lyricsFetchFingerprint()
+
+function onConfigChanged()
+  -- Service only owns fetch/timing settings. Presentation is per-widget.
+  local fetchFp = lyricsFetchFingerprint()
+  local fetchChanged = fetchFp ~= lastLyricsFetchFp
+  lastLyricsFetchFp = fetchFp
+  lastLyricsConfigFp = lyricsConfigFingerprint()
+
+  if not fetchChanged then
+    -- e.g. only lyricAdvanceMs already in fetch fp; no-op display changes land here rarely.
     updateCurrentLine(true)
     publishSnapshot()
     return
   end
 
-  -- Drop current-track cache so primary source / timeout changes apply next fetch.
   if track.key ~= "" then
     lyricsCache[track.key] = nil
   end
-  -- Re-run player filter: if the current player is now disallowed, clear state.
   if track.hasPlayer and not playerAllowed(track.identity, track.desktopEntry) then
     applyActivePlayer(nil)
     return
