@@ -70,14 +70,14 @@
     },
     "bar_width": {
       "label": "Max Width",
-      "description": "Maximum width in adaptive mode, or locked width in fixed mode (px)."
+      "description": "Locked width in fixed mode (px). Not used as a hard cap in adaptive mode."
     },
     "bar_width_mode": {
       "label": "Width Mode",
-      "description": "Adaptive follows lyric length; fixed keeps a constant width.",
+      "description": "Adaptive grows with the lyric (no ellipsis). Fixed locks width and ellipsizes overflow.",
       "options": {
-        "adaptive": "Adaptive",
-        "fixed": "Fixed"
+        "adaptive": "Adaptive (full text)",
+        "fixed": "Fixed (ellipsis)"
       }
     },
     "bar_hide": {

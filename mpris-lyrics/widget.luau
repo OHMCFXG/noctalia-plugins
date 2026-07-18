@@ -141,7 +141,8 @@ local function readLayout()
   }
 end
 
--- Remaining width for the lyric column after pads, status dot, and inter-child gaps.
+-- Width budget for the lyric column when mode is fixed (after pads/dot/gaps).
+-- Adaptive mode ignores this as a hard cap (no ellipsis); only fixed uses it.
 local function lyricColumnWidth(layout, dotSize)
   local padL = if layout.vertical then 0 else layout.padL
   local padR = if layout.vertical then 0 else layout.padR
@@ -165,11 +166,15 @@ end
 local function makeLabel(text, opts)
   local label = {
     text = text,
-    maxWidth = opts.maxWidth,
     maxLines = 1,
     color = opts.color,
     textAlign = opts.textAlign,
   }
+  -- Only cap when fixed (or explicit); adaptive omits maxWidth so the label
+  -- sizes to full content without ellipsis.
+  if opts.maxWidth ~= nil then
+    label.maxWidth = opts.maxWidth
+  end
   if opts.fontSize ~= nil then
     label.fontSize = opts.fontSize
   end
@@ -201,10 +206,13 @@ end
 local function buildLyricColumn(main, extra, width, layout, fetchState)
   local mainColor = if fetchState == "ready" or fetchState == "plain" then "on_surface" else "on_surface_variant"
   local align = layout.textAlign
+  -- Fixed: cap + force box width for alignment/ellipsis.
+  -- Adaptive: no maxWidth → grow with full lyric (no "..." from our side).
+  local cap = if layout.fixed then width else nil
 
   if not layout.showExtra then
     local label = makeLabel(main, {
-      maxWidth = width,
+      maxWidth = cap,
       color = mainColor,
       textAlign = align,
     })
@@ -215,7 +223,7 @@ local function buildLyricColumn(main, extra, width, layout, fetchState)
   end
 
   local primary = makeLabel(main, {
-    maxWidth = width,
+    maxWidth = cap,
     color = mainColor,
     textAlign = align,
     fontSize = layout.primaryFontSize,
@@ -223,7 +231,7 @@ local function buildLyricColumn(main, extra, width, layout, fetchState)
     baseline = "inkCentered",
   })
   local secondary = makeLabel(extra, {
-    maxWidth = width,
+    maxWidth = cap,
     color = "on_surface_variant",
     textAlign = align,
     fontSize = layout.extraFontSize,

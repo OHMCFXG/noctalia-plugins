@@ -70,14 +70,14 @@
     },
     "bar_width": {
       "label": "最大宽度",
-      "description": "自适应模式下的上限，或固定模式下的锁定宽度（像素）。"
+      "description": "固定模式下的锁定宽度；自适应时此项不限制显示（像素）。"
     },
     "bar_width_mode": {
       "label": "宽度模式",
-      "description": "自适应随歌词长短变化；固定保持恒定宽度。",
+      "description": "自适应：随歌词变长变短，不省略。固定：锁定宽度，过长显示省略号。",
       "options": {
-        "adaptive": "自适应",
-        "fixed": "固定"
+        "adaptive": "自适应（完整显示）",
+        "fixed": "固定（过长省略）"
       }
     },
     "bar_hide": {
