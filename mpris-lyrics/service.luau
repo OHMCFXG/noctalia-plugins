@@ -107,12 +107,13 @@ local function formatTrack(title, artist)
   return title ~= "" and title or artist
 end
 
-local function buildTrackKey(title, artist, album, durationSec)
+-- Identity is title+artist only. Album/length often arrive a poll later; including
+-- them in the key causes a second "track change" (loading flash + re-fetch) mid
+-- credit-header. Album is still used for scoring when present.
+local function buildTrackKey(title, artist, _album)
   return table.concat({
     normalizeText(title),
     normalizeText(artist),
-    normalizeText(album),
-    tostring(math.max(0, math.floor(tonumber(durationSec) or 0))),
   }, "::")
 end
 
@@ -801,9 +802,12 @@ local playhead = {
   capturedAt = 0,
   isPlaying = false,
   trackKey = "",
+  settleUntil = 0, -- ignore backward host samples until this (ms)
+  zeroStreak = 0, -- consecutive near-zero host samples while we estimate ahead
 }
 
 local fetchToken = 0
+local trackEpoch = 0 -- bumped on track identity change; invalidates in-flight pos polls
 local pendingForceRefresh = false
 local lastFetchScheduleAt = 0
 local lastActivePollAt = 0
@@ -841,14 +845,20 @@ local function resetPlayhead()
   playhead.capturedAt = 0
   playhead.isPlaying = false
   playhead.trackKey = ""
+  playhead.settleUntil = 0
+  playhead.zeroStreak = 0
 end
 
-local function setPlayheadBaseline(trackKey, positionMs, isPlaying)
+local function setPlayheadBaseline(trackKey, positionMs, isPlaying, settleMs)
   playhead.trackKey = trackKey or ""
   playhead.baseMs = math.max(0, math.floor(tonumber(positionMs) or 0))
   playhead.capturedAt = nowMs()
   playhead.isPlaying = not not isPlaying
   playhead.ready = playhead.trackKey ~= ""
+  playhead.zeroStreak = 0
+  if settleMs and settleMs > 0 then
+    playhead.settleUntil = playhead.capturedAt + settleMs
+  end
 end
 
 local function estimatePositionMs()
@@ -869,9 +879,17 @@ local function estimatePositionMs()
   return math.floor(pos)
 end
 
--- Host projects position while Playing. On pause, some players report a sample
--- slightly behind our local estimate — blindly rebasing jumps the lyric up.
--- Keep the local estimate across play→pause when the gap is small (v4 parity).
+-- Host projects position while Playing, but for ~1.25s after a track change
+-- (and raw pos ≤ 5s) Noctalia returns unprojected MPRIS samples. Those raw
+-- samples lag, and occasionally snap back to 0 even after projection resumes.
+-- Logs showed: est=2710 obs=0 → line jumps 编曲→制作人. Defend with:
+--   1) settle window after force/track change: no backward rebased
+--   2) small lag ignore while playing
+--   3) near-zero glitch filter (need 3 consecutive samples to accept →0)
+local PLAYHEAD_LAG_IGNORE_MS = 2000
+local PLAYHEAD_SETTLE_MS = 3000
+local PLAYHEAD_ZERO_GLITCH_MS = 500
+
 local function syncPlayhead(observedMs, isPlaying, force)
   local key = track.key
   if key == "" then
@@ -881,19 +899,43 @@ local function syncPlayhead(observedMs, isPlaying, force)
   observedMs = math.max(0, math.floor(tonumber(observedMs) or 0))
 
   if force or not playhead.ready or playhead.trackKey ~= key then
-    setPlayheadBaseline(key, observedMs, isPlaying)
+    setPlayheadBaseline(key, observedMs, isPlaying, PLAYHEAD_SETTLE_MS)
     return
   end
 
+  local estimated = estimatePositionMs()
+  local t = nowMs()
+
   -- play → pause: prefer local estimate if D-Bus is only slightly behind
   if not isPlaying and playhead.isPlaying then
-    local estimated = estimatePositionMs()
     if math.abs(observedMs - estimated) <= 1200 then
       observedMs = estimated
     end
+  elseif isPlaying and playhead.isPlaying then
+    local lag = estimated - observedMs
+    if lag > 0 then
+      -- Fresh track: free-run from baseline; host zeros/lags are noise.
+      if t < playhead.settleUntil then
+        return
+      end
+      if lag <= PLAYHEAD_LAG_IGNORE_MS then
+        return
+      end
+      -- Host occasionally reports 0 mid-play (not a real seek-to-start).
+      if observedMs <= PLAYHEAD_ZERO_GLITCH_MS then
+        playhead.zeroStreak += 1
+        if playhead.zeroStreak < 3 then
+          return
+        end
+      else
+        playhead.zeroStreak = 0
+      end
+    else
+      playhead.zeroStreak = 0
+    end
   end
 
-  setPlayheadBaseline(key, observedMs, isPlaying)
+  setPlayheadBaseline(key, observedMs, isPlaying, 0)
 end
 
 -- ── Snapshot publish ─────────────────────────────────────────────────────────
@@ -1745,6 +1787,7 @@ local function applyActivePlayer(info)
     track.desktopEntry = ""
     track.isPlaying = false
     if had then
+      trackEpoch += 1
       resetLyricsState("idle")
     else
       publishSnapshot()
@@ -1766,6 +1809,7 @@ local function applyActivePlayer(info)
     track.desktopEntry = info.desktopEntry
     track.isPlaying = false
     if had then
+      trackEpoch += 1
       resetLyricsState("idle")
     else
       publishSnapshot()
@@ -1777,7 +1821,7 @@ local function applyActivePlayer(info)
   if info.lengthMs > 0 then
     durationSec = math.floor((info.lengthMs / 1000) + 0.5)
   end
-  local nextKey = buildTrackKey(info.title, info.artist, info.album, durationSec)
+  local nextKey = buildTrackKey(info.title, info.artist, info.album)
   local trackChanged = nextKey ~= track.key
   local playingChanged = info.isPlaying ~= track.isPlaying
 
@@ -1786,7 +1830,10 @@ local function applyActivePlayer(info)
   track.title = info.title
   track.artist = info.artist
   track.album = info.album
-  track.duration = durationSec
+  -- Keep last known duration if this sample omits length (common right after skip).
+  if durationSec > 0 or trackChanged then
+    track.duration = durationSec
+  end
   track.key = nextKey
   track.busName = info.busName
   track.identity = info.identity
@@ -1795,7 +1842,21 @@ local function applyActivePlayer(info)
 
   syncPlayhead(info.positionMs, info.isPlaying, trackChanged)
   if trackChanged then
-    scheduleLyricsRefresh(false)
+    trackEpoch += 1
+    -- Prefer cache immediately so we don't flash "searching" on a known track.
+    -- Network path still goes through the debounced schedule.
+    local preferPlayer = cfg("preferPlayerLyrics")
+    if preferPlayer == nil then
+      preferPlayer = false
+    end
+    local cached = lyricsCache[nextKey]
+    if type(cached) == "table" and (preferPlayer or cached.source ~= "player") then
+      fetchToken += 1
+      applyResult(cached, nextKey)
+    else
+      resetLyricsState("loading")
+      scheduleLyricsRefresh(false)
+    end
   elseif not track.hasActiveTrack then
     resetLyricsState("no-track")
   elseif playingChanged then
@@ -1839,8 +1900,12 @@ local function pollPosition()
     return
   end
   posPollInFlight = true
+  local epoch = trackEpoch
   local accepted = noctalia.runAsync(BUSCTL_POS, function(result)
     posPollInFlight = false
+    if epoch ~= trackEpoch then
+      return
+    end
     if not result or result.exitCode ~= 0 then
       return
     end
