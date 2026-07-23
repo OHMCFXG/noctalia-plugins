@@ -146,26 +146,43 @@ local function scoreTextMatch(target, candidate, exactScore, partialScore)
   return countTokenOverlap(target, candidate) * 5
 end
 
-local function scoreTrackCandidate(track, title, artists, album, durationMs)
-  local trackTitle = normalizeText(track.title)
-  local trackArtist = normalizeText(track.artist)
-  local trackAlbum = normalizeText(track.album)
-  local trackDurationMs = math.max(0, math.floor(tonumber(track.duration) or 0)) * 1000
+-- HTTP callbacks share a 25ms thread-CPU budget (Noctalia kCallbackBudget).
+-- Cap every source the same; early-exit when title+artist+duration match well.
+local SEARCH_CANDIDATE_LIMIT = 12
+-- title exact(100) + artist exact(70) + duration(35)
+local SCORE_EARLY_EXIT = 205
 
-  local score = scoreTextMatch(trackTitle, normalizeText(title), 100, 55)
+local function makeTrackNorms(track)
+  return {
+    title = normalizeText(track.title),
+    artist = normalizeText(track.artist),
+    album = normalizeText(track.album),
+    durationMs = math.max(0, math.floor(tonumber(track.duration) or 0)) * 1000,
+  }
+end
+
+local function nonEmptyText(value)
+  if value == nil then
+    return false
+  end
+  return noctalia.string.trim(tostring(value)) ~= ""
+end
+
+local function scoreTrackCandidate(norms, title, artists, album, durationMs)
+  local score = scoreTextMatch(norms.title, normalizeText(title), 100, 55)
   local bestArtist = 0
   if type(artists) == "table" then
     for _, name in ipairs(artists) do
-      local s = scoreTextMatch(trackArtist, normalizeText(name), 70, 35)
+      local s = scoreTextMatch(norms.artist, normalizeText(name), 70, 35)
       if s > bestArtist then
         bestArtist = s
       end
     end
   end
   score += bestArtist
-  score += scoreTextMatch(trackAlbum, normalizeText(album), 20, 10)
+  score += scoreTextMatch(norms.album, normalizeText(album), 20, 10)
   durationMs = tonumber(durationMs) or 0
-  if trackDurationMs > 0 and durationMs > 0 and math.abs(trackDurationMs - durationMs) < 5000 then
+  if norms.durationMs > 0 and durationMs > 0 and math.abs(norms.durationMs - durationMs) < 5000 then
     score += 35
   end
   return score
@@ -336,29 +353,30 @@ local function selectBestLrcLibRecord(track, records)
   if type(records) ~= "table" or #records == 0 then
     return nil
   end
-  local trackTitle = normalizeText(track.title)
-  local trackArtist = normalizeText(track.artist)
-  local trackAlbum = normalizeText(track.album)
+  local norms = makeTrackNorms(track)
   local duration = math.max(0, math.floor(tonumber(track.duration) or 0))
   local bestRecord, bestScore = nil, -1e9
+  local maxScan = math.min(#records, SEARCH_CANDIDATE_LIMIT)
 
-  for _, record in ipairs(records) do
+  for i = 1, maxScan do
+    local record = records[i]
     if type(record) == "table" then
       local title = normalizeText(record.trackName or record.track_name or record.name)
       local artist = normalizeText(record.artistName or record.artist_name or record.artist)
       local album = normalizeText(record.albumName or record.album_name or record.album)
       local recordDuration = math.max(0, math.floor(tonumber(record.duration or record.length or record.trackLength) or 0))
-      local synced = cleanText(record.syncedLyrics or record.synced_lyrics)
-      local plain = cleanText(record.plainLyrics or record.plain_lyrics or record.lyrics)
+      -- Presence only — do not cleanText full lyric bodies while scoring.
+      local hasSynced = nonEmptyText(record.syncedLyrics or record.synced_lyrics)
+      local hasPlain = nonEmptyText(record.plainLyrics or record.plain_lyrics or record.lyrics)
       local score = 0
-      if synced ~= "" then
+      if hasSynced then
         score += 120
-      elseif plain ~= "" then
+      elseif hasPlain then
         score += 40
       end
-      score += scoreTextMatch(trackTitle, title, 100, 55)
-      score += scoreTextMatch(trackArtist, artist, 70, 35)
-      score += scoreTextMatch(trackAlbum, album, 20, 10)
+      score += scoreTextMatch(norms.title, title, 100, 55)
+      score += scoreTextMatch(norms.artist, artist, 70, 35)
+      score += scoreTextMatch(norms.album, album, 20, 10)
       if duration > 0 and recordDuration > 0 then
         local diff = math.abs(duration - recordDuration)
         if diff == 0 then
@@ -370,6 +388,10 @@ local function selectBestLrcLibRecord(track, records)
       if score > bestScore then
         bestScore = score
         bestRecord = record
+        if bestScore >= SCORE_EARLY_EXIT + 120 then
+          -- synced bonus + title/artist/duration strong match
+          break
+        end
       end
     end
   end
@@ -392,27 +414,35 @@ local function parseLyricsRecord(record)
 end
 
 -- Attach a timed secondary LRC track onto primary entries by nearest timestamp.
+-- Both sides are time-sorted → two-pointer O(n+m) instead of O(n*m).
 local function mergeTimedField(primary, secondary, field, toleranceMs)
   if type(primary) ~= "table" or type(secondary) ~= "table" or #secondary == 0 then
     return primary
   end
   toleranceMs = tonumber(toleranceMs) or 500
+  local j = 1
+  local nPrimary = #primary
+  if nPrimary == 0 then
+    return primary
+  end
   for _, s in ipairs(secondary) do
-    local st = tonumber(s.timeMs) or 0
     local text = s.text or ""
     if text ~= "" then
-      local bestIdx, bestDist = nil, toleranceMs + 1
-      for i, p in ipairs(primary) do
-        local dist = math.abs((tonumber(p.timeMs) or 0) - st)
-        if dist < bestDist then
-          bestDist = dist
-          bestIdx = i
+      local st = tonumber(s.timeMs) or 0
+      while j < nPrimary do
+        local curDist = math.abs((tonumber(primary[j].timeMs) or 0) - st)
+        local nextDist = math.abs((tonumber(primary[j + 1].timeMs) or 0) - st)
+        if nextDist <= curDist then
+          j += 1
+        else
+          break
         end
       end
-      if bestIdx ~= nil and bestDist <= toleranceMs then
-        local cur = primary[bestIdx][field]
+      local dist = math.abs((tonumber(primary[j].timeMs) or 0) - st)
+      if dist <= toleranceMs then
+        local cur = primary[j][field]
         if cur == nil or cur == "" then
-          primary[bestIdx][field] = text
+          primary[j][field] = text
         end
       end
     end
@@ -1357,7 +1387,7 @@ local function fetchNetease(cacheKey, token, callback)
     type = 1,
     offset = 0,
     total = true,
-    limit = 50,
+    limit = SEARCH_CANDIDATE_LIMIT,
   }, cacheKey, token, function(ok, data)
     if not ok or type(data) ~= "table" then
       callback(nil)
@@ -1372,8 +1402,11 @@ local function fetchNetease(cacheKey, token, callback)
       callback(nil)
       return
     end
+    local norms = makeTrackNorms(track)
     local bestScore, bestId = -1, ""
-    for _, song in ipairs(songs) do
+    local maxScan = math.min(#songs, SEARCH_CANDIDATE_LIMIT)
+    for i = 1, maxScan do
+      local song = songs[i]
       local artists = {}
       if type(song.ar) == "table" then
         for _, ar in ipairs(song.ar) do
@@ -1381,7 +1414,7 @@ local function fetchNetease(cacheKey, token, callback)
         end
       end
       local score = scoreTrackCandidate(
-        track,
+        norms,
         cleanText(song.name),
         artists,
         cleanText(song.al and song.al.name),
@@ -1390,6 +1423,9 @@ local function fetchNetease(cacheKey, token, callback)
       if score > bestScore then
         bestScore = score
         bestId = cleanText(song.id)
+        if bestScore >= SCORE_EARLY_EXIT then
+          break
+        end
       end
     end
     if bestId == "" or bestScore < 100 then
@@ -1454,7 +1490,7 @@ local function fetchQQMusic(cacheKey, token, callback)
       param = {
         query = keyword,
         search_type = 0,
-        num_per_page = 50,
+        num_per_page = SEARCH_CANDIDATE_LIMIT,
         page_num = 0,
         nqc_flag = 0,
         grp = 0,
@@ -1491,8 +1527,11 @@ local function fetchQQMusic(cacheKey, token, callback)
       callback(nil)
       return
     end
+    local norms = makeTrackNorms(track)
     local bestScore, bestMid = -1, ""
-    for _, song in ipairs(songs) do
+    local maxScan = math.min(#songs, SEARCH_CANDIDATE_LIMIT)
+    for i = 1, maxScan do
+      local song = songs[i]
       local artists = {}
       if type(song.singer) == "table" then
         for _, s in ipairs(song.singer) do
@@ -1501,7 +1540,7 @@ local function fetchQQMusic(cacheKey, token, callback)
       end
       local durationMs = (tonumber(song.interval) or 0) * 1000
       local score = scoreTrackCandidate(
-        track,
+        norms,
         cleanText(song.songname or song.name or song.title),
         artists,
         cleanText(song.albumname or (song.album and (song.album.name or song.album.title))),
@@ -1510,6 +1549,9 @@ local function fetchQQMusic(cacheKey, token, callback)
       if score > bestScore then
         bestScore = score
         bestMid = cleanText(song.mid)
+        if bestScore >= SCORE_EARLY_EXIT then
+          break
+        end
       end
     end
     if bestMid == "" or bestScore < 100 then
