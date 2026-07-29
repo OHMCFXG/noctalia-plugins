@@ -162,11 +162,13 @@ local function makeTrackNorms(track)
   }
 end
 
+-- Pattern probe rather than trim(): callers pass whole lyric bodies, and trimming
+-- one per candidate would allocate a full copy of each just to test emptiness.
 local function nonEmptyText(value)
   if value == nil then
     return false
   end
-  return noctalia.string.trim(tostring(value)) ~= ""
+  return string.find(tostring(value), "%S") ~= nil
 end
 
 local function scoreTrackCandidate(norms, title, artists, album, durationMs)
@@ -244,66 +246,118 @@ local function parseTimestamp(token)
   return (((hours * 60) + minutes) * 60 + seconds) * 1000 + millis
 end
 
-local function parseLrc(text)
+-- LRC scanning is the heaviest thing this plugin does, and the host meters it:
+-- http callbacks get 25ms of thread CPU (kCallbackBudget), update() only 12ms
+-- (kUpdateBudget). Three overruns in a row mark the whole runtime unhealthy and
+-- Noctalia stops delivering it events — update() included — so the service
+-- freezes until the plugin reloads. The scanner is therefore resumable: the
+-- network path advances it one slice per tick instead of parsing in one go.
+local MAX_LRC_BYTES = 200000
+-- Bounds finalizeLrcScan's table.sort, the one step that runs whole inside a
+-- single slice rather than being chunked. Real lyrics stay in the low hundreds of
+-- cues: we never request NetEase's per-word `yrc`, and enhanced-LRC inline timings
+-- (`<00:12.00>`) are text to this scanner, not tags. 1200 leaves headroom over
+-- anything genuine while keeping the sort far under update()'s 12ms.
+local MAX_LRC_ENTRIES = 1200
+
+local function newLrcScan(text)
   local raw = tostring(text or "")
-  if noctalia.string.trim(raw) == "" then
-    return {}
+  -- An unclosed '[' makes the tag pattern backtrack over the whole tail at every
+  -- '[', so refuse oversized bodies instead of gambling on the budget.
+  if #raw > MAX_LRC_BYTES or not string.find(raw, "%S") then
+    raw = ""
   end
-  raw = raw:gsub("\r", "")
+  return {
+    raw = raw,
+    lastEnd = 1,
+    pendingTimes = {},
+    globalOffsetMs = 0,
+    result = {},
+    scanned = false,
+  }
+end
 
-  -- Collect (timeMs, text) by walking every [tag]. Text after a timestamp tag
-  -- belongs to that timestamp until the next timestamp (handles single-line LRC
-  -- where NetEase/others omit newlines between cues).
-  local result = {}
-  local globalOffsetMs = 0
-  local pendingTimes = {}
-  local lastEnd = 1
-
-  local function flushPending(from, to)
-    if #pendingTimes == 0 then
-      return
-    end
-    local lyric = cleanText(raw:sub(from, to))
-    if lyric ~= "" then
-      for _, t in ipairs(pendingTimes) do
-        table.insert(result, { timeMs = t, text = lyric })
-      end
-    end
-    pendingTimes = {}
+-- Emit raw[from..to] once per pending timestamp. File-local rather than a closure
+-- inside stepLrcScan, which would allocate one per slice (i.e. per tick).
+local function flushScanPending(scan, from, to)
+  local pending = scan.pendingTimes
+  if #pending == 0 then
+    return
   end
+  -- cleanText collapses \r, so the body never needs a whole-string gsub pass.
+  local lyric = cleanText(scan.raw:sub(from, to))
+  if lyric ~= "" then
+    local result = scan.result
+    for _, t in ipairs(pending) do
+      table.insert(result, { timeMs = t, text = lyric })
+    end
+  end
+  scan.pendingTimes = {}
+end
 
-  while true do
-    local s, e, inner = string.find(raw, "%[([^%]]+)%]", lastEnd)
+-- Walk [tags], consuming at most `maxTags` per call. Text after a timestamp tag
+-- belongs to that timestamp until the next timestamp (handles single-line LRC
+-- where NetEase/others omit newlines between cues). True once the body is done.
+local function stepLrcScan(scan, maxTags)
+  if scan.scanned then
+    return true
+  end
+  local raw = scan.raw
+  local result = scan.result
+
+  for _ = 1, maxTags do
+    local s, e, inner = string.find(raw, "%[([^%]]+)%]", scan.lastEnd)
     if not s then
-      flushPending(lastEnd, #raw)
+      flushScanPending(scan, scan.lastEnd, #raw)
+      scan.scanned = true
       break
     end
 
     -- Text between previous tag end and this tag belongs to previous timestamps.
-    if s > lastEnd then
-      flushPending(lastEnd, s - 1)
+    if s > scan.lastEnd then
+      flushScanPending(scan, scan.lastEnd, s - 1)
     end
 
     local offsetMatch = string.match(inner, "^%s*[Oo][Ff][Ff][Ss][Ee][Tt]%s*:%s*(-?%d+)%s*$")
     if offsetMatch then
-      globalOffsetMs = tonumber(offsetMatch) or 0
+      scan.globalOffsetMs = tonumber(offsetMatch) or 0
     else
       local ts = parseTimestamp(inner)
       if ts ~= nil then
-        table.insert(pendingTimes, math.max(0, ts + globalOffsetMs))
-      else
-        -- Non-time tag (ar/ti/al/by…): ignore, do not flush.
+        table.insert(scan.pendingTimes, math.max(0, ts + scan.globalOffsetMs))
       end
+      -- Non-time tag (ar/ti/al/by…): ignore, do not flush.
     end
-    lastEnd = e + 1
-  end
+    scan.lastEnd = e + 1
 
-  table.sort(result, function(a, b)
-    if a.timeMs == b.timeMs then
-      return a.text < b.text
+    if #result >= MAX_LRC_ENTRIES then
+      scan.scanned = true
+      break
     end
-    return a.timeMs < b.timeMs
-  end)
+  end
+  return scan.scanned
+end
+
+-- Order by time and drop duplicate cues. Providers almost always emit sorted LRC,
+-- so check first and skip the comparator sort when it would be a no-op.
+local function finalizeLrcScan(scan)
+  local result = scan.result
+  local sorted = true
+  for i = 2, #result do
+    local prev, cur = result[i - 1], result[i]
+    if cur.timeMs < prev.timeMs or (cur.timeMs == prev.timeMs and cur.text < prev.text) then
+      sorted = false
+      break
+    end
+  end
+  if not sorted then
+    table.sort(result, function(a, b)
+      if a.timeMs == b.timeMs then
+        return a.text < b.text
+      end
+      return a.timeMs < b.timeMs
+    end)
+  end
 
   local deduped = {}
   for _, item in ipairs(result) do
@@ -315,13 +369,22 @@ local function parseLrc(text)
   return deduped
 end
 
+-- One-shot parse, for bodies small enough to stay inside a single call budget
+-- (player-embedded metadata). Network responses go through the sliced scanner.
+local function parseLrc(text)
+  local scan = newLrcScan(text)
+  while not stepLrcScan(scan, MAX_LRC_ENTRIES) do
+  end
+  return finalizeLrcScan(scan)
+end
+
 local function parsePlainLyrics(text)
-  local raw = tostring(text or ""):gsub("\r", "")
-  if noctalia.string.trim(raw) == "" then
+  local raw = tostring(text or "")
+  if not string.find(raw, "%S") then
     return {}
   end
   local result = {}
-  for line in string.gmatch(raw .. "\n", "(.-)\n") do
+  for line in string.gmatch(raw, "[^\n]+") do
     local cleaned = cleanText(line)
     if cleaned ~= "" and cleaned ~= result[#result] then
       table.insert(result, cleaned)
@@ -399,23 +462,27 @@ local function selectBestLrcLibRecord(track, records)
   return bestRecord
 end
 
-local function parseLyricsRecord(record)
+-- Pull the raw lyric bodies out of an LRCLib record. Deliberately does not parse:
+-- the caller hands these to the sliced parser so no http callback tokenizes LRC.
+local function recordLyricTexts(record)
   if type(record) ~= "table" then
-    return nil
+    return "", ""
   end
-  local synced = parseLrc(record.syncedLyrics or record.synced_lyrics or "")
-  if #synced > 0 then
-    return { state = "ready", entries = synced, plainLines = {}, error = "" }
+  local synced = tostring(record.syncedLyrics or record.synced_lyrics or "")
+  local plain = tostring(record.plainLyrics or record.plain_lyrics or record.lyrics or "")
+  if not nonEmptyText(synced) then
+    synced = ""
   end
-  local plain = parsePlainLyrics(record.plainLyrics or record.plain_lyrics or record.lyrics or "")
-  if #plain > 0 then
-    return { state = "plain", entries = {}, plainLines = plain, error = "" }
+  if not nonEmptyText(plain) then
+    plain = ""
   end
-  return nil
+  return synced, plain
 end
 
 -- Attach a timed secondary LRC track onto primary entries by nearest timestamp.
--- Both sides are time-sorted → two-pointer O(n+m) instead of O(n*m).
+-- Both sides are time-sorted → two-pointer O(n+m) instead of O(n*m). A missing
+-- field counts as empty, so entries need no pre-initialisation pass (and
+-- currentLineField() tolerates nil too).
 local function mergeTimedField(primary, secondary, field, toleranceMs)
   if type(primary) ~= "table" or type(secondary) ~= "table" or #secondary == 0 then
     return primary
@@ -449,28 +516,6 @@ local function mergeTimedField(primary, secondary, field, toleranceMs)
     end
   end
   return primary
-end
-
-local function enrichEntriesWithSecondary(entries, translationLrc, romanizationLrc)
-  if type(entries) ~= "table" or #entries == 0 then
-    return entries
-  end
-  -- Ensure fields exist
-  for _, e in ipairs(entries) do
-    if e.translation == nil then
-      e.translation = ""
-    end
-    if e.romanization == nil then
-      e.romanization = ""
-    end
-  end
-  if translationLrc and translationLrc ~= "" then
-    mergeTimedField(entries, parseLrc(translationLrc), "translation", 500)
-  end
-  if romanizationLrc and romanizationLrc ~= "" then
-    mergeTimedField(entries, parseLrc(romanizationLrc), "romanization", 500)
-  end
-  return entries
 end
 
 -- ── MPRIS via busctl JSON ────────────────────────────────────────────────────
@@ -620,6 +665,14 @@ local function metaValueToText(value)
   return tostring(value)
 end
 
+-- Reads lyrics the player itself advertises on MPRIS (xesam:asText and friends).
+--
+-- Unlike the network sources this parses inline, via the one-shot parseLrc, once
+-- per candidate — so it is the one path that can still overrun a callback budget.
+-- Kept that way deliberately: it is gated behind preferPlayerLyrics (off by
+-- default), players advertise one candidate in practice, and MAX_LRC_BYTES caps
+-- each body. If that setting ever becomes the default, route this through
+-- enqueueParseJob like the network sources instead.
 local function extractLyricsFromMetadataDict(dict)
   if type(dict) ~= "table" then
     return ""
@@ -693,42 +746,8 @@ local function busctlMetadataCommand(busName)
     .. " /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player Metadata --json=short"
 end
 
-local function tryPlayerEmbeddedLyrics(cacheKey, token, callback)
-  local busName = track.busName
-  if busName == nil or busName == "" then
-    callback(nil)
-    return
-  end
-  local cmd = busctlMetadataCommand(busName)
-  local accepted = noctalia.runAsync(cmd, function(result)
-    if token ~= fetchToken or cacheKey ~= track.key then
-      callback(nil)
-      return
-    end
-    if not result or result.exitCode ~= 0 then
-      callback(nil)
-      return
-    end
-    local meta = parseMetadataJson(result.stdout or "")
-    if not meta then
-      callback(nil)
-      return
-    end
-    local _text, kind, payload = extractLyricsFromMetadataDict(meta)
-    if kind == "ready" then
-      callback({ state = "ready", entries = payload, plainLines = {}, error = "", source = "player" })
-      return
-    end
-    if kind == "plain" then
-      callback({ state = "plain", entries = {}, plainLines = payload, error = "", source = "player" })
-      return
-    end
-    callback(nil)
-  end, 3000)
-  if not accepted then
-    callback(nil)
-  end
-end
+-- Note: tryPlayerEmbeddedLyrics lives below the service-state block — it reads
+-- `track` / `fetchToken`, and Lua resolves those lexically at compile time.
 
 -- ── Player filter ────────────────────────────────────────────────────────────
 
@@ -819,6 +838,168 @@ local lastPublishedKey = ""
 local loggedSourceKey = ""
 
 local FALLBACK_ORDER = { "netease", "qqmusic", "lrclib" }
+
+-- Fetch-stall bookkeeping. loadingSince tracks the last observed *progress*, not
+-- the start of the fetch: sources are tried serially (netease → qqmusic → lrclib)
+-- and NetEase alone chains openssl → http → openssl → http, so a legitimate run
+-- can span tens of seconds. A total-elapsed watchdog would kill healthy fetches.
+local loadingSince = 0
+local retryKey = ""
+local retryCount = 0
+local MAX_FETCH_RETRIES = 1
+
+-- Deferred LRC parsing. Set by the network callbacks, advanced by update().
+local parseJob = nil
+local PARSE_SLICE_TAGS = 128
+
+-- Secondary LRC tracks merged onto the primary entries, in order. Each names the
+-- job field holding the raw body and the per-entry field it populates.
+local SECONDARY_TRACKS = {
+  { source = "tlyric", field = "translation" },
+  { source = "romalrc", field = "romanization" },
+}
+
+-- Assigned once scheduleLyricsRefresh / resetLyricsState exist.
+local failLoading
+
+-- Every async continuation belongs to one fetch of one track; both can be
+-- superseded while it is in flight, so each entry point re-checks before acting.
+local function isStale(token, cacheKey)
+  return token ~= fetchToken or cacheKey ~= track.key
+end
+
+local function markFetchProgress()
+  if fetchState == "loading" then
+    loadingSince = nowMs()
+  end
+end
+
+-- An explicit user action (right-click refresh, IPC, changing a lyrics setting)
+-- earns a fresh retry budget. Deliberately not folded into scheduleLyricsRefresh:
+-- failLoading() schedules a forced refresh too, and resetting there would make
+-- the retry loop unbounded.
+local function resetRetryBudget()
+  retryKey = track.key
+  retryCount = 0
+end
+
+local function tryPlayerEmbeddedLyrics(cacheKey, token, callback)
+  local busName = track.busName
+  if busName == nil or busName == "" then
+    callback(nil)
+    return
+  end
+  local cmd = busctlMetadataCommand(busName)
+  local accepted = noctalia.runAsync(cmd, function(result)
+    if isStale(token, cacheKey) then
+      callback(nil)
+      return
+    end
+    markFetchProgress()
+    if not result or result.exitCode ~= 0 then
+      callback(nil)
+      return
+    end
+    local meta = parseMetadataJson(result.stdout or "")
+    if not meta then
+      callback(nil)
+      return
+    end
+    local _text, kind, payload = extractLyricsFromMetadataDict(meta)
+    if kind == "ready" then
+      callback({ state = "ready", entries = payload, plainLines = {}, error = "", source = "player" })
+      return
+    end
+    if kind == "plain" then
+      callback({ state = "plain", entries = {}, plainLines = payload, error = "", source = "player" })
+      return
+    end
+    callback(nil)
+  end, 3000)
+  if not accepted then
+    callback(nil)
+  end
+end
+
+-- Hand raw provider text to the sliced parser instead of parsing inline. `finish`
+-- is the source's continuation: it takes a result table (or nil to fall through
+-- to the next source) exactly like the old inline callbacks did. Only `token`,
+-- `cacheKey`, `finish` and at least one body are required.
+local function enqueueParseJob(job)
+  job.lrc = job.lrc or ""
+  job.tlyric = job.tlyric or ""
+  job.romalrc = job.romalrc or ""
+  job.plain = job.plain or ""
+  job.secondary = 1
+  job.scan = newLrcScan(job.lrc)
+  parseJob = job
+end
+
+-- Advance the job by one slice. True once every body has been consumed.
+-- job.entries stays nil until the primary LRC is done, which is what tells the
+-- secondary passes apart from the primary one.
+local function advanceParseJob(job)
+  if not stepLrcScan(job.scan, PARSE_SLICE_TAGS) then
+    return false
+  end
+  local parsed = finalizeLrcScan(job.scan)
+
+  if job.entries == nil then
+    job.entries = parsed
+    if #parsed == 0 then
+      -- No timed cues: fall back to a plain body if the provider gave us one.
+      job.plainLines = parsePlainLyrics(job.plain)
+      return true
+    end
+  else
+    mergeTimedField(job.entries, parsed, SECONDARY_TRACKS[job.secondary].field, 500)
+    job.secondary += 1
+  end
+
+  local nextTrack = SECONDARY_TRACKS[job.secondary]
+  if nextTrack == nil then
+    return true
+  end
+  job.scan = newLrcScan(job[nextTrack.source])
+  return false
+end
+
+-- One slice per update() tick. Never retries within a tick: if the budget is
+-- already spent, the very next safepoint would trip it again.
+local function stepParseJob()
+  local job = parseJob
+  if job == nil then
+    return false
+  end
+  if isStale(job.token, job.cacheKey) then
+    parseJob = nil
+    return false
+  end
+  markFetchProgress()
+
+  local ok, done = pcall(advanceParseJob, job)
+  if not ok then
+    parseJob = nil
+    log(`lyrics parse failed: {done}`)
+    failLoading("parse")
+    return true
+  end
+  if not done then
+    return true
+  end
+
+  parseJob = nil
+  local entries = job.entries or {}
+  local plainLines = job.plainLines or {}
+  if #entries > 0 then
+    job.finish({ state = "ready", entries = entries, plainLines = {}, error = "" })
+  elseif #plainLines > 0 then
+    job.finish({ state = "plain", entries = {}, plainLines = plainLines, error = "" })
+  else
+    job.finish(nil)
+  end
+  return true
+end
 
 -- Per-line secondary fields for the widget (presentation chooses which to show).
 local function currentLineField(field)
@@ -1126,6 +1307,13 @@ end
 local function applyResult(result, cacheKey)
   result = result or { state = "empty", entries = {}, plainLines = {}, error = "", source = "" }
   storeCache(cacheKey, result)
+  -- Fetch reached a terminal state: drop any pending parse, disarm the stall
+  -- watchdog, and forget retries for this track.
+  parseJob = nil
+  loadingSince = 0
+  if cacheKey == retryKey then
+    retryCount = 0
+  end
   fetchState = result.state or "empty"
   lyricsEntries = result.entries or {}
   plainLyricsLines = result.plainLines or {}
@@ -1152,6 +1340,8 @@ local function resetLyricsState(newState)
   currentLineIndex = -1
   currentLyricsSource = ""
   loggedSourceKey = ""
+  -- Arm / disarm the stall watchdog alongside the state it guards.
+  loadingSince = if newState == "loading" then nowMs() else 0
   -- Keep playhead when still on the same track (e.g. force refresh); clear only
   -- when leaving an active track.
   if newState == "idle" or newState == "no-track" then
@@ -1159,6 +1349,12 @@ local function resetLyricsState(newState)
   end
   lyricRevision += 1
   publishSnapshot()
+end
+
+-- Enter the "searching" state for a fetch that is about to start.
+local function enterLoading()
+  parseJob = nil
+  resetLyricsState("loading")
 end
 
 -- ── NetEase weapi ────────────────────────────────────────────────────────────
@@ -1265,8 +1461,21 @@ local requestTimeoutMs = function()
   return math.max(1000, math.min(12000, t))
 end
 
+-- noctalia.http returns false when the host refuses the request — there are only
+-- kMaxAsyncHttpPerHost (8) in-flight slots per plugin, and a superseded fetch's
+-- request keeps its slot until curl's 30s timeout fires, so skipping through an
+-- album can exhaust them. A refused request never calls back, which would stall
+-- the fetch until the watchdog trips; synthesize a failure so the chain advances
+-- through the same path a real HTTP error takes.
+local function httpSend(request, callback)
+  if noctalia.http(request, callback) then
+    return
+  end
+  callback({ ok = false, status = 0, body = "" })
+end
+
 local function httpGet(url, headers, callback)
-  noctalia.http({
+  httpSend({
     url = url,
     method = "GET",
     headers = headers,
@@ -1274,12 +1483,29 @@ local function httpGet(url, headers, callback)
 end
 
 local function httpPost(url, body, headers, callback)
-  noctalia.http({
+  httpSend({
     url = url,
     method = "POST",
     body = body,
     headers = headers,
   }, callback)
+end
+
+-- Guard every http callback: the body is attacker-shaped JSON and `res` may be
+-- the synthetic failure above.
+local function httpOk(res)
+  return type(res) == "table"
+    and res.ok == true
+    and type(res.status) == "number"
+    and res.status >= 200
+    and res.status < 300
+end
+
+local function httpBody(res)
+  if type(res) ~= "table" then
+    return ""
+  end
+  return tostring(res.body or "")
 end
 
 -- forward decl
@@ -1315,16 +1541,33 @@ local function fetchLrcLib(cacheKey, token, callback)
   local exactUrl = "https://lrclib.net/api/get?" .. table.concat(parts, "&")
 
   httpGet(exactUrl, { "Accept: application/json" }, function(res)
-    if token ~= fetchToken or cacheKey ~= track.key then
+    if isStale(token, cacheKey) then
       callback(nil)
       return
     end
-    local parsed = nil
-    if res.ok and res.status >= 200 and res.status < 300 then
-      local data = noctalia.json.decode(res.body)
-      parsed = parseLyricsRecord(data)
-      if parsed and parsed.state == "ready" then
-        callback(parsed)
+    markFetchProgress()
+
+    -- LRCLib has no translation/romanization tracks, so only lrc/plain are set.
+    local function deliver(synced, plain)
+      if synced == "" and plain == "" then
+        callback(nil)
+        return
+      end
+      enqueueParseJob({
+        token = token,
+        cacheKey = cacheKey,
+        lrc = synced,
+        plain = plain,
+        finish = callback,
+      })
+    end
+
+    local exactSynced, exactPlain = "", ""
+    if httpOk(res) then
+      exactSynced, exactPlain = recordLyricTexts(noctalia.json.decode(httpBody(res)))
+      -- A synced hit on /api/get is authoritative; no need to also search.
+      if exactSynced ~= "" then
+        deliver(exactSynced, exactPlain)
         return
       end
     end
@@ -1343,28 +1586,30 @@ local function fetchLrcLib(cacheKey, token, callback)
     for k, v in pairs(searchParams) do
       table.insert(sp, `{noctalia.string.urlEncode(k)}={noctalia.string.urlEncode(tostring(v))}`)
     end
+
     if #sp == 0 then
-      callback(parsed)
+      deliver(exactSynced, exactPlain)
       return
     end
+
     local searchUrl = "https://lrclib.net/api/search?" .. table.concat(sp, "&")
     httpGet(searchUrl, { "Accept: application/json" }, function(res2)
-      if token ~= fetchToken or cacheKey ~= track.key then
+      if isStale(token, cacheKey) then
         callback(nil)
         return
       end
-      if res2.ok and res2.status >= 200 and res2.status < 300 then
-        local data = noctalia.json.decode(res2.body)
+      markFetchProgress()
+      if httpOk(res2) then
+        local data = noctalia.json.decode(httpBody(res2))
         if type(data) == "table" then
-          local candidate = selectBestLrcLibRecord(track, data)
-          local fromSearch = parseLyricsRecord(candidate)
-          if fromSearch then
-            callback(fromSearch)
+          local synced, plain = recordLyricTexts(selectBestLrcLibRecord(track, data))
+          if synced ~= "" or plain ~= "" then
+            deliver(synced, plain)
             return
           end
         end
       end
-      callback(parsed)
+      deliver(exactSynced, exactPlain)
     end)
   end)
 end
@@ -1376,10 +1621,11 @@ local function neteaseWeApi(url, payload, cacheKey, token, callback)
   end
   local cmd = buildNeteaseEncryptCommand(payload)
   local accepted = noctalia.runAsync(cmd, function(result)
-    if token ~= fetchToken or cacheKey ~= track.key then
+    if isStale(token, cacheKey) then
       callback(false, nil, "stale")
       return
     end
+    markFetchProgress()
     if not result or result.exitCode ~= 0 then
       callback(false, nil, (result and result.stderr) or "encrypt failed")
       return
@@ -1396,15 +1642,16 @@ local function neteaseWeApi(url, payload, cacheKey, token, callback)
       "Referer: https://music.163.com/",
       "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 11_1_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.87 Safari/537.36",
     }, function(res)
-      if token ~= fetchToken or cacheKey ~= track.key then
+      if isStale(token, cacheKey) then
         callback(false, nil, "stale")
         return
       end
-      if not res.ok or res.status < 200 or res.status >= 300 then
-        callback(false, nil, `http {res.status}`)
+      markFetchProgress()
+      if not httpOk(res) then
+        callback(false, nil, `http {type(res) == "table" and res.status or "?"}`)
         return
       end
-      local data = noctalia.json.decode(res.body)
+      local data = noctalia.json.decode(httpBody(res))
       callback(true, data, "")
     end)
   end, requestTimeoutMs() + 2000)
@@ -1479,7 +1726,8 @@ local function fetchNetease(cacheKey, token, callback)
       lv = -1,
       tv = -1,
       rv = -1,
-      kv = -1,
+      -- No kv: klyric (karaoke) is never used and only inflates the body that
+      -- json.decode has to chew through inside the http callback.
       _nmclfl = 1,
     }, cacheKey, token, function(ok2, lyricData)
       if not ok2 or type(lyricData) ~= "table" then
@@ -1490,16 +1738,14 @@ local function fetchNetease(cacheKey, token, callback)
         callback(nil)
         return
       end
-      local lyric = tostring(lyricData.lrc and lyricData.lrc.lyric or "")
-      local parsed = parseLrc(lyric)
-      if #parsed > 0 then
-        local tlyric = tostring(lyricData.tlyric and lyricData.tlyric.lyric or "")
-        local romalrc = tostring(lyricData.romalrc and lyricData.romalrc.lyric or "")
-        enrichEntriesWithSecondary(parsed, tlyric, romalrc)
-        callback({ state = "ready", entries = parsed, plainLines = {}, error = "" })
-      else
-        callback(nil)
-      end
+      enqueueParseJob({
+        token = token,
+        cacheKey = cacheKey,
+        lrc = tostring(lyricData.lrc and lyricData.lrc.lyric or ""),
+        tlyric = tostring(lyricData.tlyric and lyricData.tlyric.lyric or ""),
+        romalrc = tostring(lyricData.romalrc and lyricData.romalrc.lyric or ""),
+        finish = callback,
+      })
     end)
   end)
 end
@@ -1545,15 +1791,16 @@ local function fetchQQMusic(cacheKey, token, callback)
     "Content-Type: application/json",
     "User-Agent: Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)",
   }, function(res)
-    if token ~= fetchToken or cacheKey ~= track.key then
+    if isStale(token, cacheKey) then
       callback(nil)
       return
     end
-    if not res.ok or res.status < 200 or res.status >= 300 then
+    markFetchProgress()
+    if not httpOk(res) then
       callback(nil)
       return
     end
-    local data = noctalia.json.decode(res.body)
+    local data = noctalia.json.decode(httpBody(res))
     if type(data) ~= "table" then
       callback(nil)
       return
@@ -1613,15 +1860,16 @@ local function fetchQQMusic(cacheKey, token, callback)
       "Accept: application/json",
       "Referer: https://y.qq.com",
     }, function(res2)
-      if token ~= fetchToken or cacheKey ~= track.key then
+      if isStale(token, cacheKey) then
         callback(nil)
         return
       end
-      if not res2.ok or res2.status < 200 or res2.status >= 300 then
+      markFetchProgress()
+      if not httpOk(res2) then
         callback(nil)
         return
       end
-      local payload = noctalia.json.decode(res2.body)
+      local payload = noctalia.json.decode(httpBody(res2))
       if type(payload) ~= "table" then
         callback(nil)
         return
@@ -1633,24 +1881,24 @@ local function fetchQQMusic(cacheKey, token, callback)
         callback(nil)
         return
       end
-      local lyric = tostring(payload.lyric or "")
-      local parsed = parseLrc(lyric)
-      if #parsed > 0 then
-        local trans = tostring(payload.trans or "")
-        local roma = tostring(payload.roma or "")
-        -- Some responses base64-encode when nobase64 is ignored
-        if trans ~= "" and not string.find(trans, "%[%d", 1) then
-          -- leave as-is; plain non-LRC trans is useless for merge
-          trans = ""
-        end
-        if roma ~= "" and not string.find(roma, "%[%d", 1) then
-          roma = ""
-        end
-        enrichEntriesWithSecondary(parsed, trans, roma)
-        callback({ state = "ready", entries = parsed, plainLines = {}, error = "" })
-      else
-        callback(nil)
+      local trans = tostring(payload.trans or "")
+      local roma = tostring(payload.roma or "")
+      -- Some responses base64-encode when nobase64 is ignored; a body without a
+      -- timestamp tag is useless for a timed merge, so drop it.
+      if not string.find(trans, "%[%d") then
+        trans = ""
       end
+      if not string.find(roma, "%[%d") then
+        roma = ""
+      end
+      enqueueParseJob({
+        token = token,
+        cacheKey = cacheKey,
+        lrc = tostring(payload.lyric or ""),
+        tlyric = trans,
+        romalrc = roma,
+        finish = callback,
+      })
     end)
   end)
 end
@@ -1666,16 +1914,18 @@ local function fetchFromSource(sourceKey, cacheKey, token, callback)
 end
 
 fetchNextSource = function(cacheKey, token, sources, index)
-  if token ~= fetchToken or cacheKey ~= track.key then
+  if isStale(token, cacheKey) then
     return
   end
   if index > #sources then
     applyResult({ state = "empty", entries = {}, plainLines = {}, error = "", source = "" }, cacheKey)
     return
   end
+  -- Starting a new source counts as progress for the stall watchdog.
+  markFetchProgress()
   local sourceKey = sources[index]
   fetchFromSource(sourceKey, cacheKey, token, function(result)
-    if token ~= fetchToken or cacheKey ~= track.key then
+    if isStale(token, cacheKey) then
       return
     end
     if result then
@@ -1699,6 +1949,7 @@ loadLyrics = function(forceRefresh)
   end
 
   fetchToken += 1
+  parseJob = nil
   local token = fetchToken
   local preferPlayer = cfg("preferPlayerLyrics")
   if preferPlayer == nil then
@@ -1706,7 +1957,7 @@ loadLyrics = function(forceRefresh)
   end
 
   local function useCacheOrNetwork()
-    if token ~= fetchToken or cacheKey ~= track.key then
+    if isStale(token, cacheKey) then
       return
     end
     local cached = lyricsCache[cacheKey]
@@ -1718,26 +1969,14 @@ loadLyrics = function(forceRefresh)
       end
     end
 
-    fetchState = "loading"
-    lyricsEntries = {}
-    plainLyricsLines = {}
-    currentLineIndex = -1
-    currentLyricsSource = ""
-    lyricRevision += 1
-    publishSnapshot()
+    enterLoading()
     fetchNextSource(cacheKey, token, lyricsSourceOrder(), 1)
   end
 
   if preferPlayer and track.busName ~= "" then
-    fetchState = "loading"
-    lyricsEntries = {}
-    plainLyricsLines = {}
-    currentLineIndex = -1
-    currentLyricsSource = ""
-    lyricRevision += 1
-    publishSnapshot()
+    enterLoading()
     tryPlayerEmbeddedLyrics(cacheKey, token, function(result)
-      if token ~= fetchToken or cacheKey ~= track.key then
+      if isStale(token, cacheKey) then
         return
       end
       if result then
@@ -1768,6 +2007,46 @@ local function consumeScheduledFetch()
   pendingForceRefresh = false
   lastFetchScheduleAt = 0
   loadLyrics(force)
+end
+
+-- A fetch that never lands would otherwise leave the widget on "searching"
+-- forever: the continuation chain is the only thing that advances fetchState, so
+-- one dropped callback (transport failure, a throw mid-chain) wedges it.
+-- Retry once, then settle on "empty" so the bar shows something truthful.
+--
+-- Note this cannot rescue a *runtime* auto-disable. Three CPU-budget overruns in
+-- a row make Noctalia stop delivering events to this plugin, update() included,
+-- and nothing here runs again until the plugin reloads. Avoiding overruns in the
+-- first place is the sliced parser's job; this is only for stalled fetches.
+failLoading = function(reason)
+  fetchToken += 1
+  parseJob = nil
+  loadingSince = 0
+  if track.key ~= retryKey then
+    retryKey = track.key
+    retryCount = 0
+  end
+  if retryCount < MAX_FETCH_RETRIES then
+    retryCount += 1
+    log(`fetch stalled ({reason}); retry {retryCount}/{MAX_FETCH_RETRIES}`)
+    scheduleLyricsRefresh(true)
+    return
+  end
+  log(`fetch stalled ({reason}); giving up until track change or manual refresh`)
+  resetLyricsState("empty")
+end
+
+local function checkFetchStall(t)
+  if fetchState ~= "loading" or loadingSince <= 0 then
+    return
+  end
+  -- Sources run serially and NetEase chains four async legs, so measure time
+  -- since the last sign of life rather than total elapsed.
+  local limit = math.max(12000, requestTimeoutMs() * 2 + 4000)
+  if (t - loadingSince) < limit then
+    return
+  end
+  failLoading("timeout")
 end
 
 -- ── MPRIS polling ────────────────────────────────────────────────────────────
@@ -1854,7 +2133,7 @@ local function applyActivePlayer(info)
       fetchToken += 1
       applyResult(cached, nextKey)
     else
-      resetLyricsState("loading")
+      enterLoading()
       scheduleLyricsRefresh(false)
     end
   elseif not track.hasActiveTrack then
@@ -1925,6 +2204,7 @@ end
 -- ── Commands / IPC / config ──────────────────────────────────────────────────
 
 local function forceRefresh()
+  resetRetryBudget()
   scheduleLyricsRefresh(true)
 end
 
@@ -1967,6 +2247,7 @@ function onConfigChanged()
     applyActivePlayer(nil)
     return
   end
+  resetRetryBudget()
   scheduleLyricsRefresh(true)
   updateCurrentLine(true)
   publishSnapshot()
@@ -1981,10 +2262,18 @@ function update()
     wallMs += TICK_MS
   end
 
+  -- update() gets 12ms of thread CPU (kUpdateBudget), less than a callback does.
+  -- When a parse slice runs, give it the whole tick: polling and publishing can
+  -- wait 100ms, and the playhead free-runs on local interpolation meanwhile.
+  if stepParseJob() then
+    return
+  end
+
   consumeCommand()
   consumeScheduledFetch()
 
   local t = nowMs()
+  checkFetchStall(t)
   if (t - lastActivePollAt) >= ACTIVE_POLL_MS then
     lastActivePollAt = t
     pollActivePlayer()
