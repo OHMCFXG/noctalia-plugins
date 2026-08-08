@@ -229,16 +229,61 @@ local function downsample(values, limit)
     for index = start, finish do
       peak = math.max(peak, number(source[index], 0) or 0)
     end
-    table.insert(result, math.max(0, math.min(1, peak)))
+    table.insert(result, math.max(0, peak))
   end
   return result
 end
 
-local function normalizeSeries(values, limit, startIndex)
+local function normalizeGraphValues(values, minimumRange)
   local source = array(values)
-  local raw = {}
   local low = nil
   local high = nil
+  local validCount = 0
+
+  for _, item in ipairs(source) do
+    local value = number(item, nil)
+    if value ~= nil then
+      validCount += 1
+      low = low == nil and value or math.min(low, value)
+      high = high == nil and value or math.max(high, value)
+    end
+  end
+
+  if low == nil or high == nil then
+    return {}
+  end
+  if high == low then
+    local flat = {}
+    for _ = 1, validCount do
+      table.insert(flat, 0.5)
+    end
+    return flat
+  end
+
+  local displayLow = low
+  local displayHigh = high
+  local range = high - low
+  local minimum = math.max(0, number(minimumRange, 0) or 0)
+  if range < minimum then
+    local center = (low + high) / 2
+    displayLow = center - minimum / 2
+    displayHigh = center + minimum / 2
+  end
+
+  local displayRange = displayHigh - displayLow
+  local result = {}
+  for _, item in ipairs(source) do
+    local value = number(item, nil)
+    if value ~= nil then
+      table.insert(result, math.max(0, math.min(1, (value - displayLow) / displayRange)))
+    end
+  end
+  return result
+end
+
+local function normalizeSeries(values, limit, startIndex, minimumRange)
+  local source = array(values)
+  local raw = {}
   local start = math.max(1, startIndex or 1)
   local finish = math.min(#source, start + (limit or 24) - 1)
 
@@ -246,27 +291,10 @@ local function normalizeSeries(values, limit, startIndex)
     local value = number(source[index] and source[index].value, nil)
     if value ~= nil then
       table.insert(raw, value)
-      low = low == nil and value or math.min(low, value)
-      high = high == nil and value or math.max(high, value)
     end
   end
 
-  if #raw == 0 then
-    return {}
-  end
-  if high == low then
-    local flat = {}
-    for _ = 1, #raw do
-      table.insert(flat, 0.5)
-    end
-    return flat
-  end
-
-  local result = {}
-  for _, value in ipairs(raw) do
-    table.insert(result, math.max(0, math.min(1, (value - low) / (high - low))))
-  end
-  return result
+  return normalizeGraphValues(raw, minimumRange)
 end
 
 local function adcodeName(result)
@@ -414,7 +442,7 @@ local function normalizeHourly(hourly, serverTime, tzshift)
     end
   end
 
-  return rows, normalizeSeries(temperatures, 24, startIndex), graphLabels
+  return rows, normalizeSeries(temperatures, 24, startIndex, 8), graphLabels
 end
 
 local function normalizeDaily(daily)
@@ -461,11 +489,14 @@ local function normalizeModel(payload)
   local location = array(payload.location)
   local skycon = cleanText(realtime.skycon)
   local wind = type(realtime.wind) == "table" and realtime.wind or {}
-  local localPrecipitation = type(realtime.precipitation) == "table" and realtime.precipitation["local"] or {}
   local hourlyRows, hourlyGraph, hourlyGraphLabels = normalizeHourly(hourly, serverTime, tzshift)
   local dailyRows = normalizeDaily(daily)
   local locationName = adcodeName(result)
   local airQuality = normalizeAirQuality(realtime)
+  local precipitationGraph = normalizeGraphValues(
+    downsample(result.minutely and result.minutely.precipitation_2h, 24),
+    0.2
+  )
 
   return {
     status = "ready",
@@ -500,12 +531,10 @@ local function normalizeModel(payload)
       windSpeedText = number(wind.speed) ~= nil and numberText(wind.speed, 0) .. " km/h" or "--",
       windDirection = number(wind.direction),
       windDirectionText = windDirection(wind.direction),
-      precipitationIntensity = number(localPrecipitation.intensity),
     },
     nowcast = {
       description = cleanText(result.forecast_keypoint),
-      precipitation = downsample(result.minutely and result.minutely.precipitation_2h, 24),
-      probability = downsample(result.minutely and result.minutely.probability, 4),
+      precipitation = precipitationGraph,
       timeline = {
         timeLabelAfter(serverTime, tzshift, 0),
         timeLabelAfter(serverTime, tzshift, 30),
@@ -513,7 +542,6 @@ local function normalizeModel(payload)
         timeLabelAfter(serverTime, tzshift, 90),
         timeLabelAfter(serverTime, tzshift, 120),
       },
-      source = cleanText(result.minutely and result.minutely.datasource),
     },
     hourly = hourlyRows,
     hourlyGraph = hourlyGraph,
@@ -619,7 +647,7 @@ local function failureMessage(response, decodeError, apiError)
   return noctalia.tr("weather.errors.request_failed")
 end
 
-local function requestWeather(reason)
+local function requestWeather()
   if requestInFlight then
     return
   end
@@ -653,7 +681,7 @@ local function requestWeather(reason)
       return
     end
     if configFingerprint() ~= fingerprint then
-      requestWeather("config_changed")
+      requestWeather()
       return
     end
 
@@ -713,7 +741,7 @@ end
 noctalia.setUpdateInterval(UPDATE_INTERVAL_MS)
 noctalia.state.watch("weather-command", function(value)
   if type(value) == "table" and value.op == "refresh" then
-    requestWeather("manual")
+    requestWeather()
   end
 end)
 
@@ -722,7 +750,7 @@ function onConfigChanged()
   local locationChanged = fingerprint ~= lastConfigFingerprint
   lastConfigFingerprint = fingerprint
   if locationChanged then
-    requestWeather("config")
+    requestWeather()
   end
 end
 
@@ -730,14 +758,14 @@ function update()
   local fingerprint = configFingerprint()
   if fingerprint ~= lastConfigFingerprint then
     lastConfigFingerprint = fingerprint
-    requestWeather("config")
+    requestWeather()
     return
   end
 
   if not requestInFlight and (lastFetchAt == 0 or os.time() - lastFetchAt >= refreshIntervalSeconds()) then
-    requestWeather("timer")
+    requestWeather()
   end
 end
 
 lastConfigFingerprint = configFingerprint()
-requestWeather("startup")
+requestWeather()

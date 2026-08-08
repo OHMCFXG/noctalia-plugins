@@ -48,11 +48,10 @@
     "nowcast": {
       "none": "No short-term precipitation description is available.",
       "now": "Now",
-      "two_hours": "2 hours",
-      "chart": "Precipitation intensity · next 2 hours"
+      "chart": "Relative precipitation trend · next 2 hours"
     },
     "hourly": {
-      "chart": "Temperature trend · next 24 hours"
+      "chart": "Relative temperature trend · next 24 hours"
     },
     "daily": {
       "rain": "Rain chance {value}"

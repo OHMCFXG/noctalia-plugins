@@ -80,25 +80,26 @@ local function locationText()
 end
 
 local function header()
+  local loading = text(snapshot.status, "unconfigured") == "loading"
   return ui.row({ align = "center", gap = 8 }, {
     ui.column({ gap = 2, flexGrow = 1 }, {
       ui.label({ text = tr("weather.title"), fontSize = 17, fontWeight = "bold", color = "on_surface" }),
       ui.label({ text = locationText(), fontSize = 11, color = "on_surface_variant" }),
     }),
-    ui.button({ glyph = "refresh", variant = "ghost", tooltip = tr("weather.actions.refresh"), onClick = "onRefreshClicked" }),
+    ui.button({
+      glyph = loading and "loader-2" or "refresh",
+      variant = "ghost",
+      tooltip = loading and tr("weather.status.loading") or tr("weather.actions.refresh"),
+      enabled = not loading,
+      onClick = "onRefreshClicked",
+    }),
     ui.button({ glyph = "close", variant = "ghost", tooltip = tr("weather.actions.close"), onClick = "onCloseClicked" }),
   })
 end
 
 local function statusBanner()
-  local status = text(snapshot.status, "unconfigured")
-  if status == "loading" then
-    return card({
-      ui.row({ align = "center", gap = 8 }, {
-        ui.glyph({ name = "loader-2", size = 15, color = "primary" }),
-        ui.label({ text = tr("weather.status.loading"), color = "on_surface_variant", flexGrow = 1 }),
-      }),
-    }, { padding = 10, fill = "primary/0.12" })
+  if text(snapshot.status, "unconfigured") == "loading" then
+    return nil
   end
   if snapshot.error ~= nil and text(snapshot.error, "") ~= "" then
     return card({
