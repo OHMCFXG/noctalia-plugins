@@ -1,0 +1,132 @@
+{
+  "settings": {
+    "latitude": {
+      "label": "Latitude",
+      "description": "Weather location latitude, from -90 to 90. Example: 31.22."
+    },
+    "longitude": {
+      "label": "Longitude",
+      "description": "Weather location longitude, from -180 to 180. Example: 121.35."
+    },
+    "refresh_interval": {
+      "label": "Automatic refresh interval",
+      "description": "How often to fetch new weather data, from 1 to 120 minutes. Right-click the bar widget to refresh immediately."
+    }
+  },
+  "weather": {
+    "title": "Weather",
+    "today": "Today",
+    "alert": "Weather alert",
+    "location_unknown": "Configured location",
+    "feels_like": "Feels like {value}",
+    "actions": {
+      "refresh": "Refresh weather",
+      "close": "Close"
+    },
+    "status": {
+      "loading": "Updating weather…",
+      "loading_description": "The first weather snapshot is being downloaded.",
+      "stale": "Showing the last successful update",
+      "unavailable": "Weather unavailable"
+    },
+    "setup": {
+      "title": "Set up your weather location",
+      "description": "Enter a latitude and longitude in the plugin settings to start receiving weather data.",
+      "invalid_title": "The weather coordinates are invalid",
+      "invalid_description": "Latitude must be between -90 and 90. Longitude must be between -180 and 180.",
+      "path": "Settings → Plugins → Caiyun Weather"
+    },
+    "sections": {
+      "current": "Current conditions",
+      "nowcast": "Next two hours",
+      "hourly": "Hourly forecast",
+      "daily": "Five-day forecast",
+      "air_quality": "Air quality",
+      "life": "Lifestyle indices",
+      "alerts": "Weather alerts"
+    },
+    "nowcast": {
+      "none": "No short-term precipitation description is available.",
+      "now": "Now",
+      "two_hours": "2 hours",
+      "chart": "Precipitation intensity · next 2 hours"
+    },
+    "hourly": {
+      "chart": "Temperature trend · next 24 hours"
+    },
+    "daily": {
+      "rain": "Rain chance {value}"
+    },
+    "metrics": {
+      "humidity": "Humidity",
+      "wind": "Wind",
+      "visibility": "Visibility",
+      "pressure": "Pressure",
+      "clouds": "Cloud cover",
+      "dewpoint": "Dew point",
+      "aqi": "AQI",
+      "pollutants": "Pollutants",
+      "sunrise": "Sunrise",
+      "sunset": "Sunset"
+    },
+    "pollutants": {
+      "pm25": "PM2.5  {value}",
+      "pm10": "PM10    {value}"
+    },
+    "life": {
+      "ultraviolet": "UV",
+      "comfort": "Comfort",
+      "dressing": "Dressing",
+      "car_washing": "Car wash",
+      "cold_risk": "Cold risk"
+    },
+    "footer": {
+      "updated": "Updated {time} · Source: {source}",
+      "source": "Caiyun Weather"
+    },
+    "errors": {
+      "title": "Weather data unavailable",
+      "api_error": "The weather service rejected the request ({status}).",
+      "invalid_response": "The weather service returned an invalid response.",
+      "no_response": "No response was received from the weather service.",
+      "http_status": "Weather request failed (HTTP {status}).",
+      "request_failed": "The weather request failed.",
+      "request_rejected": "The weather request could not be started."
+    },
+    "wind": {
+      "north": "N",
+      "north_east": "NE",
+      "east": "E",
+      "south_east": "SE",
+      "south": "S",
+      "south_west": "SW",
+      "west": "W",
+      "north_west": "NW"
+    },
+    "condition": {
+      "clear_day": "Clear",
+      "clear_night": "Clear night",
+      "partly_cloudy_day": "Partly cloudy",
+      "partly_cloudy_night": "Partly cloudy night",
+      "cloudy": "Cloudy",
+      "light_rain": "Light rain",
+      "moderate_rain": "Moderate rain",
+      "heavy_rain": "Heavy rain",
+      "storm_rain": "Storm rain",
+      "light_snow": "Light snow",
+      "moderate_snow": "Moderate snow",
+      "heavy_snow": "Heavy snow",
+      "storm_snow": "Snow storm",
+      "hail": "Hail",
+      "sleet": "Sleet",
+      "fog": "Fog",
+      "light_haze": "Light haze",
+      "moderate_haze": "Haze",
+      "heavy_haze": "Heavy haze",
+      "dust": "Dust",
+      "sand": "Sandstorm",
+      "wind": "Strong wind",
+      "unknown": "Unknown conditions"
+    }
+  }
+}

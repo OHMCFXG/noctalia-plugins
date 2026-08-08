@@ -12,3 +12,14 @@ description = "Synced lyrics on the bar from NetEase, QQ Music, or LRCLib."
 plugin_api = 3
 tags = ["bar", "service", "media", "music"]
 dependencies = ["busctl", "openssl"]
+
+[[plugin]]
+id = "0x1ce/caiyun-weather"
+name = "Caiyun Weather"
+version = "0.2.0"
+author = "0x1ce"
+license = "MIT"
+icon = "cloud-sun"
+description = "Caiyun weather on the bar with a detailed popup forecast."
+plugin_api = 3
+tags = ["bar", "panel", "service", "weather"]

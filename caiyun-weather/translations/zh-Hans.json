@@ -1,0 +1,132 @@
+{
+  "settings": {
+    "latitude": {
+      "label": "纬度",
+      "description": "天气位置的纬度，范围 -90 到 90。例如：31.22。"
+    },
+    "longitude": {
+      "label": "经度",
+      "description": "天气位置的经度，范围 -180 到 180。例如：121.35。"
+    },
+    "refresh_interval": {
+      "label": "自动刷新间隔",
+      "description": "自动获取新天气数据的间隔，范围 1 到 120 分钟。也可以右键点击 bar 小部件立即刷新。"
+    }
+  },
+  "weather": {
+    "title": "天气",
+    "today": "今天",
+    "alert": "天气预警",
+    "location_unknown": "已配置位置",
+    "feels_like": "体感 {value}",
+    "actions": {
+      "refresh": "刷新天气",
+      "close": "关闭"
+    },
+    "status": {
+      "loading": "正在更新天气…",
+      "loading_description": "正在获取第一份天气数据。",
+      "stale": "当前显示上一次成功更新的数据",
+      "unavailable": "天气数据不可用"
+    },
+    "setup": {
+      "title": "设置天气位置",
+      "description": "请在插件设置中填写纬度和经度，以开始获取天气数据。",
+      "invalid_title": "天气坐标无效",
+      "invalid_description": "纬度必须在 -90 到 90 之间，经度必须在 -180 到 180 之间。",
+      "path": "设置 → 插件 → Caiyun Weather"
+    },
+    "sections": {
+      "current": "当前实况",
+      "nowcast": "未来两小时",
+      "hourly": "逐小时预报",
+      "daily": "未来五天",
+      "air_quality": "空气质量",
+      "life": "生活指数",
+      "alerts": "天气预警"
+    },
+    "nowcast": {
+      "none": "暂无短临降水描述。",
+      "now": "现在",
+      "two_hours": "两小时",
+      "chart": "降水强度趋势 · 未来两小时"
+    },
+    "hourly": {
+      "chart": "温度趋势 · 未来 24 小时"
+    },
+    "daily": {
+      "rain": "降水概率 {value}"
+    },
+    "metrics": {
+      "humidity": "湿度",
+      "wind": "风力",
+      "visibility": "能见度",
+      "pressure": "气压",
+      "clouds": "云量",
+      "dewpoint": "露点",
+      "aqi": "AQI",
+      "pollutants": "污染物",
+      "sunrise": "日出",
+      "sunset": "日落"
+    },
+    "pollutants": {
+      "pm25": "PM2.5  {value}",
+      "pm10": "PM10    {value}"
+    },
+    "life": {
+      "ultraviolet": "紫外线",
+      "comfort": "舒适度",
+      "dressing": "穿衣",
+      "car_washing": "洗车",
+      "cold_risk": "感冒风险"
+    },
+    "footer": {
+      "updated": "更新于 {time} · 数据来源：{source}",
+      "source": "彩云天气"
+    },
+    "errors": {
+      "title": "天气数据不可用",
+      "api_error": "天气服务拒绝了请求（{status}）。",
+      "invalid_response": "天气服务返回了无效响应。",
+      "no_response": "没有收到天气服务的响应。",
+      "http_status": "天气请求失败（HTTP {status}）。",
+      "request_failed": "天气请求失败。",
+      "request_rejected": "无法启动天气请求。"
+    },
+    "wind": {
+      "north": "北风",
+      "north_east": "东北风",
+      "east": "东风",
+      "south_east": "东南风",
+      "south": "南风",
+      "south_west": "西南风",
+      "west": "西风",
+      "north_west": "西北风"
+    },
+    "condition": {
+      "clear_day": "晴",
+      "clear_night": "晴夜",
+      "partly_cloudy_day": "多云",
+      "partly_cloudy_night": "多云夜",
+      "cloudy": "阴",
+      "light_rain": "小雨",
+      "moderate_rain": "中雨",
+      "heavy_rain": "大雨",
+      "storm_rain": "暴雨",
+      "light_snow": "小雪",
+      "moderate_snow": "中雪",
+      "heavy_snow": "大雪",
+      "storm_snow": "暴雪",
+      "hail": "冰雹",
+      "sleet": "雨夹雪",
+      "fog": "雾",
+      "light_haze": "轻度雾霾",
+      "moderate_haze": "中度雾霾",
+      "heavy_haze": "重度雾霾",
+      "dust": "浮尘",
+      "sand": "沙尘",
+      "wind": "大风",
+      "unknown": "未知天气"
+    }
+  }
+}

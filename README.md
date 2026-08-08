@@ -29,6 +29,8 @@ noctalia msg plugins source add personal path /path/to/noctalia-plugins
 
 # Enable a plugin
 noctalia msg plugins enable 0x1ce/mpris-lyrics
+# Or enable the Caiyun Weather plugin
+noctalia msg plugins enable 0x1ce/caiyun-weather
 ```
 
 Then place the bar widget (e.g. `0x1ce/mpris-lyrics:bar`) from the bar editor.
@@ -45,6 +47,7 @@ noctalia msg plugins list
 | Plugin | ID | Description |
 | --- | --- | --- |
 | [mpris-lyrics](./mpris-lyrics/) | `0x1ce/mpris-lyrics` | Synced lyrics on the bar (NetEase / QQ Music / LRCLib) |
+| [caiyun-weather](./caiyun-weather/) | `0x1ce/caiyun-weather` | Caiyun weather on the bar with a detailed popup forecast |
 
 Each plugin has its own `README.md` with settings, dependencies, and IPC.
 
@@ -57,15 +60,22 @@ noctalia-plugins/
 ├── .github/
 │   ├── scripts/                 # validate + catalog tools
 │   └── workflows/               # CI
-└── mpris-lyrics/                # id: 0x1ce/mpris-lyrics
+├── mpris-lyrics/                # id: 0x1ce/mpris-lyrics
+│   ├── plugin.toml
+│   ├── service.luau
+│   ├── widget.luau
+│   ├── README.md
+│   ├── thumbnail.webp
+│   └── translations/
+│       ├── en.json
+│       └── zh-Hans.json
+└── caiyun-weather/              # id: 0x1ce/caiyun-weather
     ├── plugin.toml
     ├── service.luau
     ├── widget.luau
+    ├── panel.luau
     ├── README.md
-    ├── thumbnail.webp
     └── translations/
-        ├── en.json
-        └── zh-Hans.json
 ```
 
 Rules of thumb:

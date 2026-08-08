@@ -1,0 +1,50 @@
+id = "0x1ce/caiyun-weather"
+name = "Caiyun Weather"
+version = "0.2.0"
+plugin_api = 3
+author = "0x1ce"
+license = "MIT"
+icon = "cloud-sun"
+description = "Caiyun weather on the bar with a detailed popup forecast."
+tags = ["bar", "panel", "service", "weather"]
+dependencies = []
+
+[[setting]]
+key = "latitude"
+type = "string"
+label_key = "settings.latitude.label"
+description_key = "settings.latitude.description"
+default = ""
+
+[[setting]]
+key = "longitude"
+type = "string"
+label_key = "settings.longitude.label"
+description_key = "settings.longitude.description"
+default = ""
+
+[[setting]]
+key = "refreshIntervalMinutes"
+type = "int"
+label_key = "settings.refresh_interval.label"
+description_key = "settings.refresh_interval.description"
+default = 10
+min = 1
+max = 120
+
+[[service]]
+id = "weather-data"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"
+
+[[panel]]
+id = "weather"
+entry = "panel.luau"
+width = 460
+height = 680
+placement = "floating"
+position = "auto"
+open_near_click = true
