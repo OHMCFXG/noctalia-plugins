@@ -69,8 +69,8 @@
       "sunset": "Sunset"
     },
     "pollutants": {
-      "pm25": "PM2.5  {value}",
-      "pm10": "PM10    {value}"
+      "pm25": "PM2.5",
+      "pm10": "PM10"
     },
     "life": {
       "ultraviolet": "UV",

@@ -69,6 +69,13 @@ local function metricCell(title, value, glyph)
   })
 end
 
+local function pollutantRow(label, value)
+  return ui.row({ align = "center", gap = 8 }, {
+    ui.label({ text = label, width = 52, minWidth = 52, color = "on_surface_variant" }),
+    ui.label({ text = value, color = "on_surface", flexGrow = 1 }),
+  })
+end
+
 local function locationText()
   if text(snapshot.locationName, "") ~= "" then
     return snapshot.locationName
@@ -358,8 +365,8 @@ local function airQualitySection()
       }, { flexGrow = 1, minHeight = 82 }),
       card({
         ui.label({ text = tr("weather.metrics.pollutants"), fontSize = 11, color = "on_surface_variant" }),
-        ui.label({ text = tr("weather.pollutants.pm25", { value = text(air.pm25) }), color = "on_surface" }),
-        ui.label({ text = tr("weather.pollutants.pm10", { value = text(air.pm10) }), color = "on_surface" }),
+        pollutantRow(tr("weather.pollutants.pm25"), text(air.pm25)),
+        pollutantRow(tr("weather.pollutants.pm10"), text(air.pm10)),
       }, { flexGrow = 1, minHeight = 82 }),
     }),
   }
