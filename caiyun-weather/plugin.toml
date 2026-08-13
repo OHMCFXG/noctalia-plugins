@@ -1,6 +1,6 @@
 id = "0x1ce/caiyun-weather"
 name = "Caiyun Weather"
-version = "0.2.1"
+version = "0.2.2"
 plugin_api = 3
 author = "0x1ce"
 license = "MIT"
