@@ -16,7 +16,7 @@ dependencies = ["busctl", "openssl"]
 [[plugin]]
 id = "0x1ce/caiyun-weather"
 name = "Caiyun Weather"
-version = "0.2.2"
+version = "0.2.3"
 author = "0x1ce"
 license = "MIT"
 icon = "cloud-sun"
