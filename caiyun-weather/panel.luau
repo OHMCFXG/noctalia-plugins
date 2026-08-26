@@ -189,34 +189,36 @@ end
 local function nowcastSection()
   local nowcast = type(snapshot.nowcast) == "table" and snapshot.nowcast or {}
   local values = list(nowcast.precipitation)
+  if #values <= 1 then
+    return nil
+  end
+
   local children = {
     sectionTitle(tr("weather.sections.nowcast"), "cloud-rain"),
-  }
-  if #values > 1 then
-    table.insert(children, ui.label({
+    ui.label({
       text = tr("weather.nowcast.chart"),
       fontSize = 11,
       color = "on_surface_variant",
-    }))
-    table.insert(children, ui.graph({
+    }),
+    ui.graph({
       values = values,
       height = 58,
       color = "secondary",
       fillOpacity = 0.22,
       lineWidth = 2,
-    }))
-    local timeline = list(nowcast.timeline)
-    if #timeline > 1 then
-      local labels = {}
-      for _, value in ipairs(timeline) do
-        table.insert(labels, ui.label({
-          text = text(value),
-          fontSize = 10,
-          color = "on_surface_variant",
-        }))
-      end
-      table.insert(children, ui.row({ justify = "space_between" }, labels))
+    }),
+  }
+  local timeline = list(nowcast.timeline)
+  if #timeline > 1 then
+    local labels = {}
+    for _, value in ipairs(timeline) do
+      table.insert(labels, ui.label({
+        text = text(value),
+        fontSize = 10,
+        color = "on_surface_variant",
+      }))
     end
+    table.insert(children, ui.row({ justify = "space_between" }, labels))
   end
   return ui.column({ gap = 10, align = "stretch" }, children)
 end
@@ -487,7 +489,10 @@ local function render()
       table.insert(body, alerts)
     end
     table.insert(body, currentMetricsSection())
-    table.insert(body, nowcastSection())
+    local nowcast = nowcastSection()
+    if nowcast ~= nil then
+      table.insert(body, nowcast)
+    end
     local hourly = hourlySection()
     if hourly ~= nil then
       table.insert(body, hourly)

@@ -2,7 +2,11 @@
 -- Caiyun Weather service: fetches one normalized snapshot for the widget and panel.
 
 local API_URL = "https://api.caiyunapp.com/v2.7/Y2FpeXVuIGFuZHJpb2QgYXBp/"
-local API_SUFFIX = "/weather?alert=true"
+local API_SUFFIX = "/weather?alert=true&unit=metric"
+local PRECIP_NONE = 0.031
+local PRECIP_LIGHT = 0.25
+local PRECIP_MODERATE = 0.35
+local PRECIP_HEAVY = 0.48
 local DEFAULT_REFRESH_MINUTES = 10
 local MIN_REFRESH_MINUTES = 1
 local MAX_REFRESH_MINUTES = 120
@@ -230,6 +234,50 @@ local function downsample(values, limit)
       peak = math.max(peak, number(source[index], 0) or 0)
     end
     table.insert(result, math.max(0, peak))
+  end
+  return result
+end
+
+local function mapPrecipitationIntensity(value)
+  local intensity = number(value, 0) or 0
+  if intensity < PRECIP_NONE then
+    return 0
+  end
+  if intensity < PRECIP_LIGHT then
+    return 0.50 * (intensity - PRECIP_NONE) / (PRECIP_LIGHT - PRECIP_NONE)
+  end
+  if intensity < PRECIP_MODERATE then
+    return 0.50 + 0.20 * (intensity - PRECIP_LIGHT) / (PRECIP_MODERATE - PRECIP_LIGHT)
+  end
+  if intensity < PRECIP_HEAVY then
+    return 0.70 + 0.20 * (intensity - PRECIP_MODERATE) / (PRECIP_HEAVY - PRECIP_MODERATE)
+  end
+  return math.min(1, 0.90 + 0.10 * (intensity - PRECIP_HEAVY) / (1 - PRECIP_HEAVY))
+end
+
+local function normalizePrecipitationGraph(minutely)
+  if type(minutely) ~= "table" then
+    return {}
+  end
+  if cleanText(minutely.datasource) ~= "radar" then
+    return {}
+  end
+
+  local source = array(minutely.precipitation_2h)
+  local peak = 0
+  for _, item in ipairs(source) do
+    local value = number(item, 0) or 0
+    if value > peak then
+      peak = value
+    end
+  end
+  if peak < PRECIP_NONE then
+    return {}
+  end
+
+  local result = {}
+  for _, item in ipairs(downsample(source, 24)) do
+    table.insert(result, mapPrecipitationIntensity(item))
   end
   return result
 end
@@ -493,10 +541,7 @@ local function normalizeModel(payload)
   local dailyRows = normalizeDaily(daily)
   local locationName = adcodeName(result)
   local airQuality = normalizeAirQuality(realtime)
-  local precipitationGraph = normalizeGraphValues(
-    downsample(result.minutely and result.minutely.precipitation_2h, 24),
-    0.2
-  )
+  local precipitationGraph = normalizePrecipitationGraph(result.minutely)
 
   return {
     status = "ready",
