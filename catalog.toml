@@ -23,3 +23,15 @@ icon = "cloud-sun"
 description = "Caiyun weather on the bar with a detailed popup forecast."
 plugin_api = 3
 tags = ["bar", "panel", "service", "weather"]
+
+[[plugin]]
+id = "0x1ce/xiaomi-plug"
+name = "Xiaomi Plug"
+version = "1.1.1"
+author = "0x1ce"
+license = "MIT"
+icon = "plug"
+description = "Live power draw from a Xiaomi MIoT smart plug on the bar."
+plugin_api = 24
+tags = ["bar", "service", "power", "xiaomi"]
+dependencies = ["uv", "python3"]

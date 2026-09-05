@@ -1,0 +1,54 @@
+{
+  "settings": {
+    "ip": {
+      "label": "插座 IP 地址",
+      "description": "小米智能插座的局域网 IPv4 地址，例如 192.168.1.100。"
+    },
+    "token": {
+      "label": "设备 Token",
+      "description": "插座的 32 位 miIO token。保存在 Noctalia 插件设置中。"
+    },
+    "poll_seconds": {
+      "label": "刷新间隔",
+      "description": "查询实时功率的间隔，范围 3 到 60 秒。也可以右键点击 bar 小部件立即刷新。"
+    },
+    "python_path": {
+      "label": "Python 解释器",
+      "description": "可选。留空则优先用 uv，没有 uv 时再用 python3。若要强制使用已安装 python-miio 的本地 Python，在此指定路径。"
+    },
+    "siid": {
+      "label": "功率 SIID",
+      "description": "实时功率的 MIoT 服务 id。米家智能插座 3（cuco.plug.v3）为 11。"
+    },
+    "piid": {
+      "label": "功率 PIID",
+      "description": "实时功率的 MIoT 属性 id。米家智能插座 3（cuco.plug.v3）为 2。"
+    }
+  },
+  "plug": {
+    "status": {
+      "unconfigured": "请在插件设置中填写插座 IP 和 token",
+      "loading": "正在读取插座功率…",
+      "stale": "当前显示上一次成功读取的数据",
+      "offline": "插座离线",
+      "unavailable": "无法读取插座功率"
+    },
+    "setup": {
+      "path": "设置 → 插件 → Xiaomi Plug"
+    },
+    "errors": {
+      "missing_python": "未找到 Python。请安装 Python 3，或在插件设置中指定解释器。",
+      "missing_uv": "未在 PATH 中找到 uv。",
+      "missing_runtime": "未找到 uv 也未找到 Python。请安装 uv（推荐），或安装带 python-miio 的 Python 3。",
+      "missing_script": "插件目录中缺少功率查询脚本。",
+      "missing_miio": "所选解释器未安装 python-miio。",
+      "invalid_ip": "插座 IP 地址无效。",
+      "invalid_token": "设备 token 必须是 32 位十六进制字符。",
+      "invalid_response": "功率查询脚本返回了无效响应。",
+      "request_rejected": "无法启动功率查询。",
+      "timed_out": "功率查询超时。",
+      "device": "插座拒绝了功率查询。",
+      "offline": "插座没有响应。"
+    }
+  }
+}

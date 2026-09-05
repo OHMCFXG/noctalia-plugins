@@ -31,6 +31,8 @@ noctalia msg plugins source add personal path /path/to/noctalia-plugins
 noctalia msg plugins enable 0x1ce/mpris-lyrics
 # Or enable the Caiyun Weather plugin
 noctalia msg plugins enable 0x1ce/caiyun-weather
+# Or enable the Xiaomi Plug plugin
+noctalia msg plugins enable 0x1ce/xiaomi-plug
 ```
 
 Then place the bar widget (e.g. `0x1ce/mpris-lyrics:bar`) from the bar editor.
@@ -48,6 +50,7 @@ noctalia msg plugins list
 | --- | --- | --- |
 | [mpris-lyrics](./mpris-lyrics/) | `0x1ce/mpris-lyrics` | Synced lyrics on the bar (NetEase / QQ Music / LRCLib) |
 | [caiyun-weather](./caiyun-weather/) | `0x1ce/caiyun-weather` | Caiyun weather on the bar with a detailed popup forecast |
+| [xiaomi-plug](./xiaomi-plug/) | `0x1ce/xiaomi-plug` | Live Xiaomi MIoT plug power on the bar |
 
 Each plugin has its own `README.md` with settings, dependencies, and IPC.
 
@@ -69,11 +72,18 @@ noctalia-plugins/
 │   └── translations/
 │       ├── en.json
 │       └── zh-Hans.json
-└── caiyun-weather/              # id: 0x1ce/caiyun-weather
+├── caiyun-weather/              # id: 0x1ce/caiyun-weather
+│   ├── plugin.toml
+│   ├── service.luau
+│   ├── widget.luau
+│   ├── panel.luau
+│   ├── README.md
+│   └── translations/
+└── xiaomi-plug/                 # id: 0x1ce/xiaomi-plug
     ├── plugin.toml
     ├── service.luau
     ├── widget.luau
-    ├── panel.luau
+    ├── poll.py
     ├── README.md
     └── translations/
 ```

@@ -1,0 +1,69 @@
+id = "0x1ce/xiaomi-plug"
+name = "Xiaomi Plug"
+version = "1.1.1"
+plugin_api = 24
+author = "0x1ce"
+license = "MIT"
+icon = "plug"
+description = "Live power draw from a Xiaomi MIoT smart plug on the bar."
+tags = ["bar", "service", "power", "xiaomi"]
+dependencies = ["uv", "python3"]
+
+[[setting]]
+key = "ip"
+type = "string"
+label_key = "settings.ip.label"
+description_key = "settings.ip.description"
+default = ""
+
+[[setting]]
+key = "token"
+type = "string"
+label_key = "settings.token.label"
+description_key = "settings.token.description"
+default = ""
+
+[[setting]]
+key = "pollSeconds"
+type = "int"
+label_key = "settings.poll_seconds.label"
+description_key = "settings.poll_seconds.description"
+default = 5
+min = 3
+max = 60
+
+[[setting]]
+key = "pythonPath"
+type = "file"
+label_key = "settings.python_path.label"
+description_key = "settings.python_path.description"
+default = ""
+advanced = true
+
+[[setting]]
+key = "siid"
+type = "int"
+label_key = "settings.siid.label"
+description_key = "settings.siid.description"
+default = 11
+min = 1
+max = 255
+advanced = true
+
+[[setting]]
+key = "piid"
+type = "int"
+label_key = "settings.piid.label"
+description_key = "settings.piid.description"
+default = 2
+min = 1
+max = 255
+advanced = true
+
+[[service]]
+id = "plug-data"
+entry = "service.luau"
+
+[[widget]]
+id = "bar"
+entry = "widget.luau"

@@ -1,0 +1,54 @@
+{
+  "settings": {
+    "ip": {
+      "label": "Plug IP address",
+      "description": "Local IPv4 address of the Xiaomi smart plug, for example 192.168.1.100."
+    },
+    "token": {
+      "label": "Device token",
+      "description": "32-character miIO token for the plug. Stored in Noctalia plugin settings."
+    },
+    "poll_seconds": {
+      "label": "Refresh interval",
+      "description": "How often to query live power, from 3 to 60 seconds. Right-click the bar widget to refresh immediately."
+    },
+    "python_path": {
+      "label": "Python interpreter",
+      "description": "Optional. Leave empty to use uv when available, otherwise python3. Set this to force a local Python that has python-miio installed."
+    },
+    "siid": {
+      "label": "Power SIID",
+      "description": "MIoT service id for live power. Xiaomi Smart Plug 3 (cuco.plug.v3) uses 11."
+    },
+    "piid": {
+      "label": "Power PIID",
+      "description": "MIoT property id for live power. Xiaomi Smart Plug 3 (cuco.plug.v3) uses 2."
+    }
+  },
+  "plug": {
+    "status": {
+      "unconfigured": "Set the plug IP and token in plugin settings",
+      "loading": "Reading plug power…",
+      "stale": "Showing the last successful reading",
+      "offline": "Plug is offline",
+      "unavailable": "Plug power unavailable"
+    },
+    "setup": {
+      "path": "Settings → Plugins → Xiaomi Plug"
+    },
+    "errors": {
+      "missing_python": "Python was not found. Install Python 3, or set the interpreter in plugin settings.",
+      "missing_uv": "uv was not found on PATH.",
+      "missing_runtime": "Neither uv nor Python was found. Install uv (recommended) or Python 3 with python-miio.",
+      "missing_script": "The bundled poll helper is missing from the plugin directory.",
+      "missing_miio": "python-miio is not installed for the selected interpreter.",
+      "invalid_ip": "The plug IP address is invalid.",
+      "invalid_token": "The device token must be 32 hexadecimal characters.",
+      "invalid_response": "The plug helper returned an invalid response.",
+      "request_rejected": "The plug query could not be started.",
+      "timed_out": "The plug query timed out.",
+      "device": "The plug rejected the power query.",
+      "offline": "The plug did not respond."
+    }
+  }
+}
